@@ -16,7 +16,7 @@ module databus (input [23:0] ADDR,
     CONTROL1_EN = 0;
     CONTROL2_EN = 0;
     SYSRAM_EN = 0;
-    if (ADDR<=24'h07FF) begin
+    if (ADDR<=24'h1FFF) begin
       SYSRAM_EN = CPU_WR;
       BUS_OUT = (CPU_WR) ? SYSRAM_Q : CPU_DO;
     end
@@ -25,13 +25,16 @@ module databus (input [23:0] ADDR,
       BUS_OUT = PRGROM_Q;
 
     else if (ADDR==24'h4016) begin
-      CONTROL1_EN = CPU_WR;
+      CONTROL1_EN = 1'b1;
       BUS_OUT = (CPU_WR) ? CONTROL1 : CPU_DO;
     end
 
     else if (ADDR=24'h4017) begin
-      CONTROL2_EN = CPU_WR;
+      CONTROL2_EN = 1'b1;
       BUS_OUT = (CPU_WR) ? CONTROL2 : CPU_DO;
     end
+
+    else
+      BUS_OUT = '0;
   end
 endmodule // databus

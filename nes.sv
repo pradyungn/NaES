@@ -50,7 +50,16 @@ module NES (
   logic [7:0]              CPU_DO, bus_data;
   logic [63:0]             internal_regs;
 
-  T65 CPU (.Mode('0), .BCD_en('0'), .Res_n(KEY[0]), .Enable(1'b1),
+  logic [14:0]             counter;
+
+  always_ff @ (posedge CLK_NES) begin
+    if (~KEY[0])
+      counter<=0;
+    else if (counter < 26530)
+      counter <= counter + 1;
+  end
+
+  T65 CPU (.Mode('0), .BCD_en('0), .Res_n(KEY[0]), .Enable(counter < 26530),
            .Clk(CLK_NES), .Rdy(1'b1), .IRQ_n(1'b1), .NMI_n(1'b1), .R_W_n(W_R),
            .A(bus_addr), .DI(bus_data), .DO(CPU_DO), .Regs(internal_regs));
 

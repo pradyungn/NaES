@@ -21,6 +21,7 @@ module databus (input [15:0] ADDR,
       BUS_OUT = (CPU_WR) ? SYSRAM_Q : CPU_DO;
     end
 
+    // read-only prgrom
     else if (ADDR>=16'h8000 && ADDR<=16'hFFFF)
       BUS_OUT = PRGROM_Q;
 

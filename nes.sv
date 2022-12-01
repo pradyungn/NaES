@@ -44,13 +44,15 @@ module NES (
   main_pll PLL (.inclk0(MAX10_CLK1_50), .c0(CLK_NESRAM), .c1(CLK_NES),
                 .c2(CLK_PPU), .c3(CLK_VGA));
 
+  localparam logic [14:0]  chkpts [1:0] = {26530};
+
   // CPU inst
   logic                    W_R;
   logic [23:0]             bus_addr;
   logic [7:0]              CPU_DO, bus_data;
   logic [63:0]             internal_regs;
 
-  logic [14:0]             counter;
+  logic [14:0]             counter, chkpt;
 
   always_ff @ (posedge CLK_NES) begin
     if (~KEY[0])
@@ -72,8 +74,8 @@ module NES (
   logic                    sysram_en;
   logic [7:0]              sysram_out, prgrom_out;
 
-  system_ram SYSRAM (bus_addr[10:0], CLK_NESRAM, bus_data, sysram_en, sysram_out);
-  prg_rom PRGROM (bus_addr[14:0], CLK_NESRAM, prgrom_out);
+  system_ram SYSRAM (bus_addr[10:0], CLK_NES, bus_data, sysram_en, sysram_out);
+  prg_rom PRGROM (bus_addr[14:0], CLK_NES, prgrom_out);
 
   databus BUS (.ADDR(bus_addr), .CPU_WR(W_R), .CPU_DO,
                .SYSRAM_Q(sysram_out), .PRGROM_Q(prgrom_out),

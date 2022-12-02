@@ -1,5 +1,6 @@
 module ppu(input        ppu_clk,
            input        cpu_clk,
+           input        ram_clk,
            input        vga_clk,
 
            input [15:0] bus_addr,
@@ -11,7 +12,7 @@ module ppu(input        ppu_clk,
 
            output       dma_hijack,
            output       dma_addr,
-           output [7:0] bus_out,
+           output logic [7:0] bus_out,
 
            input        mirror_cfg,
 
@@ -32,7 +33,7 @@ module ppu(input        ppu_clk,
 
   logic                 VRAM_ADDR_EN, OAM_ADDR_EN;
   logic                 scroll_en, mask_en, ctrl_en;
-  logic                 STAT_EN;
+  logic                 STAT_EN, STAT_EN_P;
 
   // register update logic
   always_ff @ (posedge ppu_clk) begin
@@ -45,11 +46,12 @@ module ppu(input        ppu_clk,
       status <= '0;
       control <= '0;
       vram_active_p <= '0;
-
+      STAT_EN_P <= '0;
     end
 
     else begin
       vram_active_p <= vram_active;
+      STAT_EN_P <= STAT_EN;
 
       if (STAT_EN) begin
         ADDR_W <= '0;
@@ -86,7 +88,7 @@ module ppu(input        ppu_clk,
       if (mask_en)
         mask <= bus_din;
 
-      if (STAT_EN)
+      if (STAT_EN_P && ~STAT_EN)
         status[7] <= 1'b0;
       else if (dry[9:1]==8'd241 && drx[9:1]==8'd0)
         status[7] <= 1'b1;
@@ -122,22 +124,22 @@ module ppu(input        ppu_clk,
   logic [7:0]  render_pattern_data, render_nmta_data, render_nmtb_data;
 
   // ram declarations
-  chr_rom pattern (.address_a(VRAM_ADDR[12:0]), .clock_a(cpu_clk),
+  chr_rom pattern (.address_a(VRAM_ADDR[12:0]), .clock_a(ram_clk),
                    .wren_a(1'b0), .q_a(ROM_OUT),
                    .address_b(render_pattern_addr), .clock_b(vga_clk),
                    .wren_b(1'b0), .q_b(render_pattern_data));
 
-  nametable nmt_a (.address_a(VRAM_ADDR[9:0]), .clock_a(cpu_clk),
+  nametable nmt_a (.address_a(VRAM_ADDR[9:0]), .clock_a(ram_clk),
                    .data_a(bus_din), .wren_a(NMTA_EN), .q_a(NMTA_OUT),
                    .address_b(render_nmt_addr), .clock_b(vga_clk),
                    .wren_b(1'b0), .q_b(render_nmta_data));
 
-  nametable nmt_b (.address_a(VRAM_ADDR[9:0]), .clock_a(cpu_clk),
+  nametable nmt_b (.address_a(VRAM_ADDR[9:0]), .clock_a(ram_clk),
                    .data_a(bus_din), .wren_a(NMTB_EN), .q_a(NMTB_OUT),
                    .address_b(render_nmt_addr), .clock_b(vga_clk),
                    .wren_b(1'b0), .q_b(render_nmtb_data));
 
-  spr_ram OAM (.address_a(OAM_ADDR), .clock_a(cpu_clk),
+  spr_ram OAM (.address_a(OAM_ADDR), .clock_a(ram_clk),
                .data_a(bus_din), .wren_a(SPR_EN), .q_a(SPR_OUT));
 
   // containerize the bus

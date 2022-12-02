@@ -1,23 +1,25 @@
 module ppu_databus (
-                    input [15:0] ADDR,
-                    input        WR,
+                    input              cpu_clk,
 
-                    input [7:0]  CPU_DO,
-                                 CHRROM_Q,
-                                 NMTA_Q,
-                                 NMTB_Q,
-                                 SPR_Q,
-                                 STAT_Q,
-                                 PALETTE,
-                                 VRAM_PREFIX,
+                    input [15:0]       ADDR,
+                    input              WR,
 
-                    input        MIRROR,
+                    input [7:0]        CPU_DO,
+                                       CHRROM_Q,
+                                       NMTA_Q,
+                                       NMTB_Q,
+                                       SPR_Q,
+                                       STAT_Q,
+                                       PALETTE,
+                                       VRAM_PREFIX,
 
-                    output       NMTA_EN, NMTB_EN, SPR_EN, PALETTE_EN,
-                    output       CTRL_EN, STAT_EN, MSK_EN, SCRLL_EN, OAM_ADDR_EN, VRAM_ADDR_EN,
-                    output       DMA_TRIG, VRAM_ACTIVE,
+                    input              MIRROR,
 
-                    output [7:0] BUS_OUT
+                    output             NMTA_EN, NMTB_EN, SPR_EN, PALETTE_EN,
+                    output             CTRL_EN, STAT_EN, MSK_EN, SCRLL_EN, OAM_ADDR_EN, VRAM_ADDR_EN,
+                    output             DMA_TRIG, VRAM_ACTIVE,
+
+                    output logic [7:0] out
                     );
 
   // NAME SCHEME
@@ -31,8 +33,11 @@ module ppu_databus (
   // VRAM prefix is first 8 bits.
 
   // Assigning bus_out properly
-  logic [7:0]                    VRAM_BUS;
+  logic [7:0]                    VRAM_BUS, BUS_OUT;
   logic                          WRITE_VRAM;
+
+  always_ff @ (posedge cpu_clk)
+    out <= BUS_OUT;
 
   always_comb begin
     SPR_EN = 0;
@@ -48,42 +53,44 @@ module ppu_databus (
 
     BUS_OUT = '0;
 
-    if (ADDR==16'h2000) begin
-      // write-only - do not modify bus
-      CTRL_EN = ~WR;
-    end else if (ADDR==16'h2001) begin
-      // write-only
-      MSK_EN = ~WR;
-    end else if (ADDR==16'h2002) begin
-      // this is a read op, but we need to clear the address latches
-      BUS_OUT = STAT_Q;
-      STAT_EN = WR;
-    end
+  if (ADDR>=16'h2000 && ADDR<=16'h3FFF) begin
+      if (ADDR[2:0]==3'd0) begin
+        // write-only - do not modify bus
+        CTRL_EN = ~WR;
+      end else if (ADDR[2:0]==3'd1) begin
+        // write-only
+        MSK_EN = ~WR;
+      end else if (ADDR[2:0]==3'd2) begin
+        // this is a read op, but we need to clear the address latches
+        BUS_OUT = STAT_Q;
+        STAT_EN = WR;
+      end
 
-    // oamaddr
-    else if (ADDR==16'h2003)
-      OAM_ADDR_EN = 1'b1;
+      // oamaddr
+      else if (ADDR[2:0]==3'd3)
+        OAM_ADDR_EN = 1'b1;
 
 
-    // OAM interaction
-    else if (ADDR==16'h2004) begin
-      SPR_EN = ~WR;
-      BUS_OUT = SPR_Q;
-    end
+      // OAM interaction
+      else if (ADDR[2:0]==3'd4) begin
+        SPR_EN = ~WR;
+        BUS_OUT = SPR_Q;
+      end
 
-    // PPU Scroll
-    else if (ADDR==16'h2005)
-      SCRLL_EN = 1'b1;
+      // PPU Scroll
+      else if (ADDR[2:0]==3'd5)
+        SCRLL_EN = 1'b1;
 
-    // VRAM Address
-    else if (ADDR==16'h2006)
-      VRAM_ADDR_EN = 1'b1;
+      // VRAM Address
+      else if (ADDR[2:0]==3'd6)
+        VRAM_ADDR_EN = 1'b1;
 
-    // VRAM interaction
-    else if (ADDR==16'h2007) begin
-      WRITE_VRAM = ~WR;
-      BUS_OUT = VRAM_BUS;
-      VRAM_ACTIVE = 1'b1;
+      // VRAM interaction
+      else if (ADDR[2:0]==3'd7) begin
+        WRITE_VRAM = ~WR;
+        BUS_OUT = VRAM_BUS;
+        VRAM_ACTIVE = 1'b1;
+      end
     end
 
     // DMA trigger

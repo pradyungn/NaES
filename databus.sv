@@ -2,16 +2,17 @@ module databus (input [15:0] ADDR,
                 input        CPU_WR,
 
                 input [7:0]  CPU_DO,
-                input [7:0] SYSRAM_Q,
-                input [7:0] PRGROM_Q,
-                input [7:0] CONTROL1,
-                input [7:0] CONTROL2,
+                input [7:0]  SYSRAM_Q,
+                input [7:0]  PRGROM_Q,
+                input [7:0]  CONTROL1,
+                input [7:0]  CONTROL2,
+                input [7:0]  VIDEO_BUS,
 
                 output [7:0] BUS_OUT,
 
-                output CONTROL1_EN,
-                output CONTROL2_EN,
-                output SYSRAM_EN);
+                output       CONTROL1_EN,
+                output       CONTROL2_EN,
+                output       SYSRAM_EN);
   always_comb begin
     CONTROL1_EN = 0;
     CONTROL2_EN = 0;
@@ -35,7 +36,8 @@ module databus (input [15:0] ADDR,
       BUS_OUT = (CPU_WR) ? CONTROL2 : CPU_DO;
     end
 
-    else
-      BUS_OUT = '0;
+    else begin
+      BUS_OUT = (CPU_WR) ? VIDEO_BUS : CPU_DO;
+    end
   end
 endmodule // databus

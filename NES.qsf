@@ -428,12 +428,6 @@ set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_RO
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
-set_global_assignment -name SYSTEMVERILOG_FILE databus.sv
-set_global_assignment -name SYSTEMVERILOG_FILE HexDriver.sv
-set_global_assignment -name QIP_FILE t65/t65.qip
-set_global_assignment -name QIP_FILE system_ram.qip
-set_global_assignment -name QIP_FILE main_pll.qip
-set_global_assignment -name QIP_FILE prg_rom.qip
 set_global_assignment -name ENABLE_OCT_DONE ON
 set_global_assignment -name EXTERNAL_FLASH_FALLBACK_ADDRESS 00000000
 set_global_assignment -name USE_CONFIGURATION_DEVICE OFF
@@ -445,9 +439,19 @@ set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -
 set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -fall
 set_global_assignment -name ENABLE_SIGNALTAP OFF
 set_global_assignment -name USE_SIGNALTAP_FILE output_files/stp1.stp
+set_global_assignment -name SYSTEMVERILOG_FILE VGA_controller.sv
+set_global_assignment -name SYSTEMVERILOG_FILE nes.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ppu_bus.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ppu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE databus.sv
+set_global_assignment -name SYSTEMVERILOG_FILE HexDriver.sv
+set_global_assignment -name QIP_FILE t65/t65.qip
+set_global_assignment -name QIP_FILE system_ram.qip
+set_global_assignment -name QIP_FILE main_pll.qip
+set_global_assignment -name QIP_FILE prg_rom.qip
 set_global_assignment -name SIGNALTAP_FILE output_files/stp1.stp
-set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
 set_global_assignment -name QIP_FILE chr_rom.qip
 set_global_assignment -name QIP_FILE nametable.qip
 set_global_assignment -name QIP_FILE spr_ram.qip
 set_global_assignment -name QIP_FILE palette_ram.qip
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

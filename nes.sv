@@ -33,6 +33,13 @@ module NES (
             output         DRAM_CAS_N,
             output         DRAM_RAS_N,
 
+            ///////// VGA /////////
+            output             VGA_HS,
+            output             VGA_VS,
+            output   [ 3: 0]   VGA_R,
+            output   [ 3: 0]   VGA_G,
+            output   [ 3: 0]   VGA_B,
+
             ///////// ARDUINO /////////
             inout [15: 0]  ARDUINO_IO,
             inout          ARDUINO_RESET_N
@@ -41,10 +48,11 @@ module NES (
   // Clocks for different components
   logic                    CLK_NES, CLK_NESRAM, CLK_PPU, CLK_VGA;
 
+  // 0 for horiz
+  localparam logic         MIRRORING = 1'b0;
+
   main_pll PLL (.inclk0(MAX10_CLK1_50), .c0(CLK_NESRAM), .c1(CLK_NES),
                 .c2(CLK_PPU), .c3(CLK_VGA));
-
-  localparam logic [14:0]  chkpts [1:0] = {26530};
 
   // CPU inst
   logic                    W_R;
@@ -52,17 +60,19 @@ module NES (
   logic [7:0]              CPU_DO, bus_data;
   logic [63:0]             internal_regs;
 
-  logic [14:0]             counter, chkpt;
 
+  // cycle tracking
+  logic odd_or_even = 1'b1;
   always_ff @ (posedge CLK_NES) begin
     if (~KEY[0])
-      counter<=0;
-    else if (counter < 26530)
-      counter <= counter + 1;
+      odd_or_even<=1;
+    else
+      odd_or_even <= ~odd_or_even;
   end
 
-  T65 CPU (.Mode('0), .BCD_en('0), .Res_n(KEY[0]), .Enable(counter < 26530),
-           .Clk(CLK_NES), .Rdy(1'b1), .IRQ_n(1'b1), .NMI_n(1'b1), .R_W_n(W_R),
+  logic                    NMI;
+  T65 CPU (.Mode('0), .BCD_en('0), .Res_n(KEY[0]), .Enable(1'b1),
+           .Clk(CLK_NES), .Rdy(1'b1), .IRQ_n(1'b1), .NMI_n(NMI), .R_W_n(W_R),
            .A(bus_addr), .DI(bus_data), .DO(CPU_DO), .Regs(internal_regs));
 
   // PC to Hex Driver
@@ -72,12 +82,19 @@ module NES (
   HexDriver PCD (internal_regs[51 -: 4], HEX0);
 
   logic                    sysram_en;
-  logic [7:0]              sysram_out, prgrom_out;
+  logic [7:0]              sysram_out, prgrom_out, PPU_BUS;
 
   system_ram SYSRAM (bus_addr[10:0], CLK_NES, bus_data, sysram_en, sysram_out);
   prg_rom PRGROM (bus_addr[14:0], CLK_NES, prgrom_out);
 
+  ppu RICOH (.ppu_clk(CLK_PPU), .cpu_clk(CLK_NES), .vga_clk(CLK_VGA),
+             .bus_addr(bus_addr), .bus_din(bus_data), .bus_wr(W_R),
+             .odd_or_even(odd_or_even), .reset(~KEY[0]), .bus_out(PPU_BUS),
+             .mirror_cfg(MIRRORING), .VGA_HS, .VGA_VS, .VGA_R, .VGA_G, .VGA_B,
+             .nmi(NMI));
+
   databus BUS (.ADDR(bus_addr), .CPU_WR(W_R), .CPU_DO,
                .SYSRAM_Q(sysram_out), .PRGROM_Q(prgrom_out),
-               .BUS_OUT(bus_data), .SYSRAM_EN(sysram_en));
+               .BUS_OUT(bus_data), .SYSRAM_EN(sysram_en),
+               .VIDEO_BUS(PPU_BUS));
 endmodule // NES

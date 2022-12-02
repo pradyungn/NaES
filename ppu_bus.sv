@@ -15,7 +15,7 @@ module ppu_databus (
 
                     output       NMTA_EN, NMTB_EN, SPR_EN, PALETTE_EN,
                     output       CTRL_EN, STAT_EN, MSK_EN, SCRLL_EN, OAM_ADDR_EN, VRAM_ADDR_EN,
-                    output       DMA_TRIG
+                    output       DMA_TRIG, VRAM_ACTIVE,
 
                     output [7:0] BUS_OUT
                     );
@@ -43,6 +43,8 @@ module ppu_databus (
     VRAM_ADDR_EN = 0;
     DMA_TRIG = 0;
     CTRL_EN = 0;
+    WRITE_VRAM = 0;
+    VRAM_ACTIVE = 0;
 
     BUS_OUT = '0;
 
@@ -81,6 +83,7 @@ module ppu_databus (
     else if (ADDR==16'h2007) begin
       WRITE_VRAM = ~WR;
       BUS_OUT = VRAM_BUS;
+      VRAM_ACTIVE = 1'b1;
     end
 
     // DMA trigger
@@ -93,6 +96,7 @@ module ppu_databus (
     NMTA_EN = 1'b0;
     NMTB_EN = 1'b0;
     VRAM_BUS = '0;
+    PALETTE_EN = '0;
 
     if (VRAM_PREFIX<=8'h1F)
       VRAM_BUS = CHRROM_Q;

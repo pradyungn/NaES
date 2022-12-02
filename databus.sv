@@ -37,8 +37,7 @@ module databus (input [15:0] ADDR,
       BUS_OUT = (CPU_WR) ? CONTROL2 : CPU_DO;
     end
 
-    else begin
+    else 
       BUS_OUT = (CPU_WR) ? VIDEO_BUS : CPU_DO;
-    end
   end
 endmodule // databus

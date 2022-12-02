@@ -12,6 +12,19 @@ module NES (
             ///////// LEDR /////////
             output [ 9: 0] LEDR,
 
+            ///////// SDRAM /////////
+            output         DRAM_CLK,
+            output         DRAM_CKE,
+            output [12: 0] DRAM_ADDR,
+            output [ 1: 0] DRAM_BA,
+            inout [15: 0]  DRAM_DQ,
+            output         DRAM_LDQM,
+            output         DRAM_UDQM,
+            output         DRAM_CS_N,
+            output         DRAM_WE_N,
+            output         DRAM_CAS_N,
+            output         DRAM_RAS_N,
+
             ///////// HEX /////////
             output [ 7: 0] HEX0,
             output [ 7: 0] HEX1,
@@ -56,15 +69,15 @@ module NES (
       counter <= '0;
     end
     else begin
-      if (counter < 25863) begin
+      if (counter < 26530) begin
         counter <= counter + 15'd1;
       end
     end
   end
 
   logic                    NMI;
-  T65 CPU (.Mode('0), .BCD_en('0), .Res_n(KEY[0]), .Enable(counter < 25863),
-           .Clk(CLK_NES), .Rdy(1'b1), .IRQ_n(1'b1), .NMI_n(NMI), .R_W_n(W_R),
+  T65 CPU (.Mode('0), .BCD_en('0), .Res_n(KEY[0]), .Enable(counter < 26530),
+           .Clk(CLK_NES), .Rdy(1'b1), .IRQ_n(1'b1), .NMI_n(1'b1), .R_W_n(W_R),
            .A(bus_addr), .DI(bus_data), .DO(CPU_DO), .Regs(internal_regs));
 
   // PC to Hex Driver
@@ -74,16 +87,17 @@ module NES (
   HexDriver PCD (internal_regs[51 -: 4], HEX0);
 
   logic                    sysram_en;
-  logic [7:0]              sysram_out, prgrom_out, PPU_BUS;
+  logic [7:0]              sysram_out, prgrom_out;
+  logic [7:0]              PPU_BUS=0;
 
   system_ram SYSRAM (bus_addr[10:0], CLK_NES, bus_data, sysram_en, sysram_out);
   prg_rom PRGROM (bus_addr[14:0], CLK_NES, prgrom_out);
 
-  ppu RICOH (.ppu_clk(CLK_PPU), .cpu_clk(CLK_NES), .vga_clk(CLK_VGA),
-             .bus_addr(bus_addr), .bus_din(bus_data), .bus_wr(W_R),
-             .odd_or_even(odd_or_even), .reset(~KEY[0]), .bus_out(PPU_BUS),
-             .mirror_cfg(MIRRORING), .VGA_HS, .VGA_VS, .VGA_R, .VGA_G, .VGA_B,
-             .nmi(NMI));
+  // ppu RICOH (.ppu_clk(CLK_PPU), .cpu_clk(CLK_NES), .vga_clk(CLK_VGA),
+  //            .bus_addr(bus_addr), .bus_din(bus_data), .bus_wr(W_R),
+  //            .odd_or_even(odd_or_even), .reset(~KEY[0]), .bus_out(PPU_BUS),
+  //            .mirror_cfg(MIRRORING), .VGA_HS, .VGA_VS, .VGA_R, .VGA_G, .VGA_B,
+  //            .nmi(NMI));
 
   databus BUS (.ADDR(bus_addr), .CPU_WR(W_R), .CPU_DO,
                .SYSRAM_Q(sysram_out), .PRGROM_Q(prgrom_out),

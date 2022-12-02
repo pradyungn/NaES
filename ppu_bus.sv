@@ -48,42 +48,44 @@ module ppu_databus (
 
     BUS_OUT = '0;
 
-    if (ADDR==16'h2000) begin
-      // write-only - do not modify bus
-      CTRL_EN = ~WR;
-    end else if (ADDR==16'h2001) begin
-      // write-only
-      MSK_EN = ~WR;
-    end else if (ADDR==16'h2002) begin
-      // this is a read op, but we need to clear the address latches
-      BUS_OUT = STAT_Q;
-      STAT_EN = WR;
-    end
+    if (ADDR>=16'h2000 && ADDR<=16'h3FFF) begin
+      if (ADDR[2:0]==3'd0) begin
+        // write-only - do not modify bus
+        CTRL_EN = ~WR;
+      end else if (ADDR[2:0]==3'd1) begin
+        // write-only
+        MSK_EN = ~WR;
+      end else if (ADDR[2:0]==3'd2) begin
+        // this is a read op, but we need to clear the address latches
+        BUS_OUT = STAT_Q;
+        STAT_EN = WR;
+      end
 
-    // oamaddr
-    else if (ADDR==16'h2003)
-      OAM_ADDR_EN = 1'b1;
+      // oamaddr
+      else if (ADDR[2:0]==3'd3)
+        OAM_ADDR_EN = 1'b1;
 
 
-    // OAM interaction
-    else if (ADDR==16'h2004) begin
-      SPR_EN = ~WR;
-      BUS_OUT = SPR_Q;
-    end
+      // OAM interaction
+      else if (ADDR[2:0]==3'd4) begin
+        SPR_EN = ~WR;
+        BUS_OUT = SPR_Q;
+      end
 
-    // PPU Scroll
-    else if (ADDR==16'h2005)
-      SCRLL_EN = 1'b1;
+      // PPU Scroll
+      else if (ADDR[2:0]==3'd5)
+        SCRLL_EN = 1'b1;
 
-    // VRAM Address
-    else if (ADDR==16'h2006)
-      VRAM_ADDR_EN = 1'b1;
+      // VRAM Address
+      else if (ADDR[2:0]==3'd6)
+        VRAM_ADDR_EN = 1'b1;
 
-    // VRAM interaction
-    else if (ADDR==16'h2007) begin
-      WRITE_VRAM = ~WR;
-      BUS_OUT = VRAM_BUS;
-      VRAM_ACTIVE = 1'b1;
+      // VRAM interaction
+      else if (ADDR[2:0]==3'd7) begin
+        WRITE_VRAM = ~WR;
+        BUS_OUT = VRAM_BUS;
+        VRAM_ACTIVE = 1'b1;
+      end
     end
 
     // DMA trigger

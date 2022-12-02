@@ -32770,6 +32770,6 @@ BEGIN
 7FFB : c5;
 7FFC : 04;
 7FFD : c0;
-7FFE : f4;
-7FFF : c5;
+7FFE : 00;
+7FFF : c0;
 END;

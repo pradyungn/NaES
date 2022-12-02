@@ -20,19 +20,6 @@ module NES (
             output [ 7: 0] HEX4,
             output [ 7: 0] HEX5,
 
-            ///////// SDRAM /////////
-            output         DRAM_CLK,
-            output         DRAM_CKE,
-            output [12: 0] DRAM_ADDR,
-            output [ 1: 0] DRAM_BA,
-            inout [15: 0]  DRAM_DQ,
-            output         DRAM_LDQM,
-            output         DRAM_UDQM,
-            output         DRAM_CS_N,
-            output         DRAM_WE_N,
-            output         DRAM_CAS_N,
-            output         DRAM_RAS_N,
-
             ///////// VGA /////////
             output             VGA_HS,
             output             VGA_VS,
@@ -63,15 +50,20 @@ module NES (
 
   // cycle tracking
   logic odd_or_even = 1'b1;
+  logic [14:0] counter;
   always_ff @ (posedge CLK_NES) begin
-    if (~KEY[0])
-      odd_or_even<=1;
-    else
-      odd_or_even <= ~odd_or_even;
+    if (~KEY[0]) begin
+      counter <= '0;
+    end
+    else begin
+      if (counter < 25863) begin
+        counter <= counter + 15'd1;
+      end
+    end
   end
 
   logic                    NMI;
-  T65 CPU (.Mode('0), .BCD_en('0), .Res_n(KEY[0]), .Enable(1'b1),
+  T65 CPU (.Mode('0), .BCD_en('0), .Res_n(KEY[0]), .Enable(counter < 25863),
            .Clk(CLK_NES), .Rdy(1'b1), .IRQ_n(1'b1), .NMI_n(NMI), .R_W_n(W_R),
            .A(bus_addr), .DI(bus_data), .DO(CPU_DO), .Regs(internal_regs));
 

@@ -13,7 +13,7 @@ create_clock -period "50.0 MHz" [get_ports MAX10_CLK1_50]
 
 # SDRAM CLK
 # create_generated_clock -source [get_pins { u0|sdram_pll|sd1|pll7|clk[1] }] \
-                      -name clk_dram_ext [get_ports {DRAM_CLK}]
+#                      -name clk_dram_ext [get_ports {DRAM_CLK}]
 
 
 #**************************************************************
@@ -43,13 +43,13 @@ derive_clock_uncertainty
 # Board Delay (Data) + Propagation Delay - Board Delay (Clock)
 # max 5.4(max) +0.4(trace delay) +0.1 = 5.9
 # min 2.7(min) +0.4(trace delay) -0.1 = 3.0
-set_input_delay -max -clock clk_dram_ext 5.9 [get_ports DRAM_DQ*]
-set_input_delay -min -clock clk_dram_ext 3.0 [get_ports DRAM_DQ*]
+#set_input_delay -max -clock clk_dram_ext 5.9 [get_ports DRAM_DQ*]
+#set_input_delay -min -clock clk_dram_ext 3.0 [get_ports DRAM_DQ*]
 
 #shift-window
 # set_multicycle_path -from [get_clocks {clk_dram_ext}] \
-                    -to [get_clocks { u0|sdram_pll|sd1|pll7|clk[0] }] \
-						  -setup 2
+#                    -to [get_clocks { u0|sdram_pll|sd1|pll7|clk[0] }] \
+#						  -setup 2
 						  
 #**************************************************************
 # Set Output Delay
@@ -59,10 +59,10 @@ set_input_delay -min -clock clk_dram_ext 3.0 [get_ports DRAM_DQ*]
 # min : Board Delay (Data) - Board Delay (Clock) - th (External Device)
 # max 1.5+0.1 =1.6
 # min -0.8-0.1 = 0.9
-set_output_delay -max -clock clk_dram_ext 1.6  [get_ports {DRAM_DQ* DRAM_*DQM}]
-set_output_delay -min -clock clk_dram_ext -0.9 [get_ports {DRAM_DQ* DRAM_*DQM}]
-set_output_delay -max -clock clk_dram_ext 1.6  [get_ports {DRAM_ADDR* DRAM_BA* DRAM_RAS_N DRAM_CAS_N DRAM_WE_N DRAM_CKE DRAM_CS_N}]
-set_output_delay -min -clock clk_dram_ext -0.9 [get_ports {DRAM_ADDR* DRAM_BA* DRAM_RAS_N DRAM_CAS_N DRAM_WE_N DRAM_CKE DRAM_CS_N}]
+#set_output_delay -max -clock clk_dram_ext 1.6  [get_ports {DRAM_DQ* DRAM_*DQM}]
+#set_output_delay -min -clock clk_dram_ext -0.9 [get_ports {DRAM_DQ* DRAM_*DQM}]
+#set_output_delay -max -clock clk_dram_ext 1.6  [get_ports {DRAM_ADDR* DRAM_BA* DRAM_RAS_N DRAM_CAS_N DRAM_WE_N DRAM_CKE DRAM_CS_N}]
+#set_output_delay -min -clock clk_dram_ext -0.9 [get_ports {DRAM_ADDR* DRAM_BA* DRAM_RAS_N DRAM_CAS_N DRAM_WE_N DRAM_CKE DRAM_CS_N}]
 
 
 #**************************************************************

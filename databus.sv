@@ -17,6 +17,7 @@ module databus (input [15:0] ADDR,
     CONTROL1_EN = 0;
     CONTROL2_EN = 0;
     SYSRAM_EN = 0;
+
     if (ADDR<=16'h1FFF) begin
       SYSRAM_EN = ~CPU_WR;
       BUS_OUT = (CPU_WR) ? SYSRAM_Q : CPU_DO;

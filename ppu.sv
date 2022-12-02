@@ -90,7 +90,7 @@ module ppu(input        ppu_clk,
         status[7] <= 1'b0;
       else if (dry[9:1]==8'd241 && drx[9:1]==8'd0)
         status[7] <= 1'b1;
-      else if (dry==8'd524)
+      else if (dry==10'd524)
         status[7] <= 1'b0;
     end
   end
@@ -129,12 +129,12 @@ module ppu(input        ppu_clk,
 
   nametable nmt_a (.address_a(VRAM_ADDR[9:0]), .clock_a(cpu_clk),
                    .data_a(bus_din), .wren_a(NMTA_EN), .q_a(NMTA_OUT),
-                   .address_b(render_nmta_addr), .clock_b(vga_clk),
+                   .address_b(render_nmt_addr), .clock_b(vga_clk),
                    .wren_b(1'b0), .q_b(render_nmta_data));
 
   nametable nmt_b (.address_a(VRAM_ADDR[9:0]), .clock_a(cpu_clk),
                    .data_a(bus_din), .wren_a(NMTB_EN), .q_a(NMTB_OUT),
-                   .address_b(render_nmtb_addr), .clock_b(vga_clk),
+                   .address_b(render_nmt_addr), .clock_b(vga_clk),
                    .wren_b(1'b0), .q_b(render_nmtb_data));
 
   spr_ram OAM (.address_a(OAM_ADDR), .clock_a(cpu_clk),
@@ -152,7 +152,7 @@ module ppu(input        ppu_clk,
   logic [9:0] drx, dry;
 
   vga_controller ITERATOR (.Clk(vga_clk), .Reset(reset),
-                           .blank(blank), .DrawX(drx), .DrawY(dry));
+                           .blank, .hs, .vs, .DrawX(drx), .DrawY(dry));
 // NMI generation - pulls low based on VBL status flag and Control configuration
   assign nmi = ~(status[7] & control[7]);
 
@@ -160,7 +160,7 @@ module ppu(input        ppu_clk,
   assign VGA_VS = vs;
 
   // color palette (colors)
-  localparam logic [11:0] vga[63:0] = {12'h777, 12'h00F, 12'h00B, 12'h42B,
+  localparam logic [11:0] vga [0:63] = '{12'h777, 12'h00F, 12'h00B, 12'h42B,
                                        12'h908, 12'hA02, 12'hA10, 12'h810,
                                        12'h530, 12'h070, 12'h060, 12'h050,
                                        12'h045, 12'h000, 12'h000, 12'h000,
@@ -178,7 +178,7 @@ module ppu(input        ppu_clk,
                                        12'h0FF, 12'hFDF, 12'h000, 12'h000};
 
   // intermediary to convert nametable/attribute address to nmta vs nmtb
-  logic [11:0]            nt_addr, attr_addr;
+  logic [9:0]            nt_addr, attr_addr;
 
   logic                   nt_en, altpat1_en, altpat2_en, alt_attr_en;
   logic [7:0]             nt_data;
@@ -198,14 +198,14 @@ module ppu(input        ppu_clk,
       if (dry >= 479)
         ndry = '0;
       else
-        ndry = (dry + 10'd1)[8:1];
+        ndry = (dry + 10'd1)>>1;
     end else begin
       ndrx = drx[8:4] + 5'd1;
       ndry = dry[8:1];
     end // else: !if(drx >= 496)
 
     // record in either nametable as offset from 0
-    nt_addr = dry[8:4]*32 + drx;
+    nt_addr = ndry[7:3]*32 + ndrx;
 
     nt_en = 0;
     altpat1_en = 0;
@@ -213,11 +213,12 @@ module ppu(input        ppu_clk,
     alt_attr_en = 0;
 
     render_nmt_addr = '0;
+    render_pattern_addr = '0;
     nt_data = '0;
 
     unique case (drx[3:0])
       4'd0, 4'd1: begin
-        alt_nt_en = 1'b1;
+        nt_en = 1'b1;
         render_nmt_addr = nt_addr;
 
         if(control[1:0]==2'b0 || control[1]^mirror_cfg)
@@ -228,12 +229,12 @@ module ppu(input        ppu_clk,
 
       4'd4, 4'd5: begin
         altpat1_en = 1'b1;
-        render_pattern_addr = {4'd0, nt, 1'b0, ndry[2:0]};
+        render_pattern_addr = {1'b0, nt, 1'b0, ndry[2:0]};
       end
 
       4'd6, 4'd7: begin
         altpat2_en = 1'b1;
-        render_pattern_addr = {4'd1, nt, 1'b0, ndry[2:0]};
+        render_pattern_addr = {1'b1, nt, 1'b0, ndry[2:0]};
       end
     endcase
   end
@@ -279,13 +280,13 @@ module ppu(input        ppu_clk,
   // color output
   wire [11:0] color;
   always_comb begin
-    color = palette[{2'd0, pat1[drx[3:1]], pat2[drx[3:1]], 4'd0}];
+    color = vga[{pat1[drx[3:1]], pat2[drx[3:1]], 4'd0}];
 
     VGA_R = '0;
     VGA_G = '0;
     VGA_B = '0;
 
-    if(blank || (drx>511) || dry>(479)) begin
+    if(~blank || (drx>511) || dry>(479)) begin
       VGA_R = '0;
       VGA_G = '0;
       VGA_B = '0;

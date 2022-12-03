@@ -23,87 +23,14 @@ module ppu(input        ppu_clk,
   // internal bus VRAM addr - you need to assign this in two
   // different writes to VRAM_ADDR i/o register
 
-  logic [15:0]          VRAM_ADDR, scroll;
-  logic [7:0]           OAM_ADDR, mask, status, control;
+  logic [15:0]          vram_addr, scroll;
+  logic [7:0]           oam_addr, mask, status, control;
 
-  logic                 ADDR_W, scroll_w; // tracks 1st vs second write to vram addr
-
-  // pipelined and current versions of vram activity
-  logic                 vram_active, vram_active_p;
-
-  logic                 VRAM_ADDR_EN, OAM_ADDR_EN;
-  logic                 scroll_en, mask_en, ctrl_en;
-  logic                 STAT_EN, STAT_EN_P;
-
-  // register update logic
-  always_ff @ (posedge ppu_clk) begin
-    if (reset) begin
-      VRAM_ADDR <= '0;
-      ADDR_W <= '0;
-      OAM_ADDR <= '0;
-      scroll <= '0;
-      mask <= '0;
-      status <= '0;
-      control <= '0;
-      vram_active_p <= '0;
-      STAT_EN_P <= '0;
-    end
-
-    else begin
-      vram_active_p <= vram_active;
-      STAT_EN_P <= STAT_EN;
-
-      if (STAT_EN) begin
-        ADDR_W <= '0;
-        VRAM_ADDR <= '0;
-        scroll <= '0;
-        scroll_w <= '0;
-      end else begin
-        if (VRAM_ADDR_EN) begin
-          if (ADDR_W)
-            VRAM_ADDR <= {VRAM_ADDR[7:0], bus_din};
-          else
-            VRAM_ADDR <= {8'd0, bus_din};
-
-          ADDR_W <= ~ADDR_W;
-        end else if (ADDR_W==1'b0 && ~vram_active && vram_active_p)
-          VRAM_ADDR <= VRAM_ADDR + (control[2] ? 16'd32 : 16'd1);
-
-        if (scroll_en) begin
-          if (scroll_w)
-            scroll <= {scroll[7:0], bus_din};
-          else
-            scroll <= {8'd0, bus_din};
-
-          scroll_w <= ~scroll_w;
-        end
-      end
-
-      if (OAM_ADDR_EN)
-        OAM_ADDR <= bus_din;
-
-      if (ctrl_en)
-        control <= bus_din;
-
-      if (mask_en)
-        mask <= bus_din;
-
-      if (STAT_EN_P && ~STAT_EN)
-        status[7] <= 1'b0;
-      else if (dry[9:1]==8'd241 && drx[9:1]==8'd0)
-        status[7] <= 1'b1;
-      else if (dry==10'd524)
-        status[7] <= 1'b0;
-    end
-  end
-
-
-  // write-enable signals for RAM i/o interface
-  logic                NMTA_EN, NMTB_EN, SPR_EN, palette_en;
-  logic [4:0]          palette_addr;
-  logic [7:0]          ROM_OUT, NMTA_OUT, NMTB_OUT, SPR_OUT;
+  logic                 addr_w, scroll_w; // tracks 1st vs second write to vram addr
+  logic                 incr; // pipelined incrementation signal for vram addr
 
   logic [7:0]          palette [31:0];
+  logic [4:0]          palette_addr;
 
   // mirrored indices for palette RAM
   always_comb begin
@@ -113,42 +40,147 @@ module ppu(input        ppu_clk,
       palette_addr = VRAM_ADDR[4:0];
   end
 
-  // palette write logic
-  always_ff @ (posedge ppu_clk)
-    if (palette_en)
-      palette[palette_addr] <= bus_din;
-
   // Vars for rendering
   logic [12:0] render_pattern_addr;
   logic [9:0]  render_nmt_addr;
   logic [7:0]  render_pattern_data, render_nmta_data, render_nmtb_data;
 
+  // write-enable/data signals for RAM i/o interface
+  logic                nmta_en, nmtb_en, oam_en;
+  logic [7:0]          nmta_out, nmtb_out, oam_out, pattern_out;
+
   // ram declarations
-  chr_rom pattern (.address_a(VRAM_ADDR[12:0]), .clock_a(ram_clk),
-                   .wren_a(1'b0), .q_a(ROM_OUT),
+  chr_rom pattern (.address_a(vram_addr[12:0]), .clock_a(ram_clk),
+                   .wren_a(1'b0), .q_a(pattern_out),
                    .address_b(render_pattern_addr), .clock_b(vga_clk),
                    .wren_b(1'b0), .q_b(render_pattern_data));
 
-  nametable nmt_a (.address_a(VRAM_ADDR[9:0]), .clock_a(ram_clk),
-                   .data_a(bus_din), .wren_a(NMTA_EN), .q_a(NMTA_OUT),
+  nametable nmt_a (.address_a(vram_addr[9:0]), .clock_a(ram_clk),
+                   .data_a(bus_din), .wren_a(nmta_en), .q_a(nmta_out),
                    .address_b(render_nmt_addr), .clock_b(vga_clk),
                    .wren_b(1'b0), .q_b(render_nmta_data));
 
-  nametable nmt_b (.address_a(VRAM_ADDR[9:0]), .clock_a(ram_clk),
-                   .data_a(bus_din), .wren_a(NMTB_EN), .q_a(NMTB_OUT),
+  nametable nmt_b (.address_a(vram_addr[9:0]), .clock_a(ram_clk),
+                   .data_a(bus_din), .wren_a(nmtb_en), .q_a(nmtb_out),
                    .address_b(render_nmt_addr), .clock_b(vga_clk),
                    .wren_b(1'b0), .q_b(render_nmtb_data));
 
-  spr_ram OAM (.address_a(OAM_ADDR), .clock_a(ram_clk),
-               .data_a(bus_din), .wren_a(SPR_EN), .q_a(SPR_OUT));
+  spr_ram OAM (.address_a(oam_addr), .clock_a(ram_clk),
+               .data_a(bus_din), .wren_a(oam_en), .q_a(oam_out));
 
-  // containerize the bus
-  ppu_databus gfxbus (.ADDR(bus_addr), .WR(bus_wr), .CPU_DO(bus_din), .CHRROM_Q(ROM_OUT), .clk(cpu_clk),
-                      .NMTA_Q(NMTA_OUT), .NMTB_Q(NMTB_OUT), .SPR_Q(SPR_OUT), .STAT_Q(status),
-                      .PALETTE(palette[palette_addr]), .VRAM_PREFIX(VRAM_ADDR[15:8]), .MIRROR(mirror_cfg),
-                      .NMTA_EN(NMTA_EN), .NMTB_EN(NMTB_EN), .SPR_EN(SPR_EN), .MSK_EN(mask_en),
-                      .STAT_EN(STAT_EN), .SCRLL_EN(scroll_en), .OAM_ADDR_EN(OAM_ADDR_EN), .CTRL_EN(ctrl_en),
-                      .VRAM_ADDR_EN(VRAM_ADDR_EN), .PALETTE_EN(palette_en), .out(bus_out), .VRAM_ACTIVE(vram_active));
+  always_ff @ (posedge cpu_clk) begin
+    // write signals
+    oam_en <= 0;
+    nmta_en <= 0;
+    nmtb_en <= 0;
+
+    incr <= 0;
+
+
+    if (incr)
+      vram_addr <= vram_addr + (control[2] ? 8'd32 : 8'd1);
+
+    if (reset) begin
+      mask <= '0;
+      control <= '0;
+      status <= '0;
+      oam_addr <= '0;
+
+
+      scroll <= '0;
+      vram_addr <= '0;
+
+      addr_w <= 0;
+      scroll_w <= 0;
+
+      bus_out <= 0;
+    end else begin
+      if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF) begin
+        case (bus_addr[2:0])
+          3'd0: if (~bus_wr)
+            control <= bus_din;
+          3'd1: if (~bus_wr)
+            mask <= bus_din;
+          3'd2: if(bus_wr) begin
+            bus_out <= status;
+            status[7] <= 0;
+
+            vram_addr <= '0;
+            scroll <= '0;
+
+            addr_w <= 0;
+            scroll_w <= 0;
+          end
+          3'd3: if (~bus_wr)
+            oam_addr <= bus_din;
+          3'd4: begin
+            if (bus_wr)
+              bus_out <= oam_out;
+            else
+              oam_en <= 1;
+          end
+
+          3'd5: if (~bus_wr)
+            begin
+              scroll_w <= ~scroll_w;
+
+              if(scroll_w)
+                scroll[15:8] <= bus_din;
+              else
+                scroll[7:0] <= bus_din;
+            end
+          3'd6: if (~bus_wr)
+            begin
+              addr_w <= ~addr_w;
+
+              if(addr_w)
+                vram_addr[15:8] <= bus_din;
+              else
+                vram_addr[7:0] <= bus_din;
+            end
+          3'd7: begin
+            incr <= 1;
+
+            if (vram_addr <= 16'h1FFF) begin
+              if(bus_wr)
+                bus_out <= pattern_out;
+            end else if (vram_addr >= 16'h2000 && vram_addr <= 16'h3EFF) begin
+              if (vram_addr[11:8]<=4'h3 ||
+                  (vram_addr[11:8]>=4'h4 && vram_addr[11:8]<=4'h7 && ~mirror_cfg) ||
+                  (vram_addr[11:8]>=4'h8 && vram_addr[11:8]<=4'hB && mirror_cfg)) begin
+                if(bus_wr)
+                  bus_out <= nmta_out;
+                else
+                  nmta_en <= 1'b1;
+              end else begin
+                if(bus_wr)
+                  bus_out <= nmtb_out;
+                else
+                  nmtb_en <= 1'b1
+                             end
+            end else if (vram_addr>=16'h3F00 && vram_addr <= 16'h3FFF) begin
+              if (bus_wr)
+                bus_out <= palette[palette_addr];
+              else
+                palette[palette_addr] <= bus_din;
+            end else
+              bus_out <= '0;
+          end // case: 3'd7
+        endcase
+      end // if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF)
+
+      else begin
+        if(dry[9:1]==9'd241 && drx[9:4]=='0)
+          status[7] <= 1'b1;
+        else if (dry[9:1]==10'd524)
+          status[7] <= 1'b0;
+      end // else: !if(bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF)
+    end // else: !if(reset)
+  end
+
+  ////////////////////////////////////////////////////////////
+ //               RENDERING LOGIC                          //
+////////////////////////////////////////////////////////////
 
   logic hs, vs, blank;
   logic [9:0] drx, dry;

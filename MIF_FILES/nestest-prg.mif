@@ -32768,7 +32768,7 @@ BEGIN
 7FF9 : 00;
 7FFA : af;
 7FFB : c5;
-7FFC : 00;
+7FFC : 04;
 7FFD : c0;
 7FFE : f4;
 7FFF : c5;

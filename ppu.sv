@@ -1,43 +1,43 @@
 module ppu(input        ppu_clk,
-           input        cpu_clk,
-           input        ram_clk,
-           input        vga_clk,
+           input              cpu_clk,
+           input              ram_clk,
+           input              vga_clk,
 
-           input [15:0] bus_addr,
-           input [7:0]  bus_din,
-           input        bus_wr,
+           input [15:0]       bus_addr,
+           input [7:0]        bus_din,
+           input              bus_wr,
 
-           input        odd_or_even,
-           input        reset,
+           input              odd_or_even,
+           input              reset,
 
-           output       dma_hijack,
-           output       dma_addr,
+           output             dma_hijack,
+           output             dma_addr,
            output logic [7:0] bus_out,
 
-           input        mirror_cfg,
+           input              mirror_cfg,
 
-           output       nmi,
-           output       VGA_HS, VGA_VS,
-           output [3:0] VGA_R, VGA_G, VGA_B);
+           output             nmi,
+           output             VGA_HS, VGA_VS,
+           output [3:0]       VGA_R, VGA_G, VGA_B);
 
   // internal bus VRAM addr - you need to assign this in two
   // different writes to VRAM_ADDR i/o register
 
-  logic [15:0]          vram_addr, scroll;
-  logic [7:0]           oam_addr, mask, status, control;
+  logic [15:0]                vram_addr, scroll;
+  logic [7:0]                 oam_addr, mask, status, control;
 
-  logic                 addr_w, scroll_w; // tracks 1st vs second write to vram addr
-  logic                 incr; // pipelined incrementation signal for vram addr
+  logic                       addr_w, scroll_w; // tracks 1st vs second write to vram addr
+  logic                       incr; // pipelined incrementation signal for vram addr
 
-  logic [7:0]          palette [31:0];
-  logic [4:0]          palette_addr;
+  logic [7:0]                 palette [31:0];
+  logic [4:0]                 palette_addr;
 
   // mirrored indices for palette RAM
   always_comb begin
-    if(VRAM_ADDR[4:0]==5'h10 || VRAM_ADDR[4:0]==5'h14 || VRAM_ADDR[4:0]==5'h18 || VRAM_ADDR[4:0]==5'h1C)
-      palette_addr = {1'b0,VRAM_ADDR[3:0]};
+    if(vram_addr[4:0]==5'h10 || vram_addr[4:0]==5'h14 || vram_addr[4:0]==5'h18 || vram_addr[4:0]==5'h1C)
+      palette_addr = {1'b0,vram_addr[3:0]};
     else
-      palette_addr = VRAM_ADDR[4:0];
+      palette_addr = vram_addr[4:0];
   end
 
   // Vars for rendering
@@ -46,8 +46,8 @@ module ppu(input        ppu_clk,
   logic [7:0]  render_pattern_data, render_nmta_data, render_nmtb_data;
 
   // write-enable/data signals for RAM i/o interface
-  logic                nmta_en, nmtb_en, oam_en;
-  logic [7:0]          nmta_out, nmtb_out, oam_out, pattern_out;
+  logic        nmta_en, nmtb_en, oam_en;
+  logic [7:0]  nmta_out, nmtb_out, oam_out, pattern_out;
 
   // ram declarations
   chr_rom pattern (.address_a(vram_addr[12:0]), .clock_a(ram_clk),
@@ -71,11 +71,7 @@ module ppu(input        ppu_clk,
   always_ff @ (posedge cpu_clk) begin
     // write signals
     oam_en <= 0;
-    nmta_en <= 0;
-    nmtb_en <= 0;
-
     incr <= 0;
-
 
     if (incr)
       vram_addr <= vram_addr + (control[2] ? 8'd32 : 8'd1);
@@ -133,7 +129,7 @@ module ppu(input        ppu_clk,
             begin
               addr_w <= ~addr_w;
 
-              if(addr_w)
+              if(~addr_w)
                 vram_addr[15:8] <= bus_din;
               else
                 vram_addr[7:0] <= bus_din;
@@ -145,19 +141,13 @@ module ppu(input        ppu_clk,
               if(bus_wr)
                 bus_out <= pattern_out;
             end else if (vram_addr >= 16'h2000 && vram_addr <= 16'h3EFF) begin
-              if (vram_addr[11:8]<=4'h3 ||
+              if (vram_addr[11:8] <= 4'h3 ||
                   (vram_addr[11:8]>=4'h4 && vram_addr[11:8]<=4'h7 && ~mirror_cfg) ||
                   (vram_addr[11:8]>=4'h8 && vram_addr[11:8]<=4'hB && mirror_cfg)) begin
-                if(bus_wr)
-                  bus_out <= nmta_out;
-                else
-                  nmta_en <= 1'b1;
+                bus_out <= nmta_out;
               end else begin
-                if(bus_wr)
-                  bus_out <= nmtb_out;
-                else
-                  nmtb_en <= 1'b1
-                             end
+                bus_out <= nmtb_out;
+              end
             end else if (vram_addr>=16'h3F00 && vram_addr <= 16'h3FFF) begin
               if (bus_wr)
                 bus_out <= palette[palette_addr];
@@ -170,24 +160,44 @@ module ppu(input        ppu_clk,
       end // if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF)
 
       else begin
-        if(dry[9:1]==9'd241 && drx[9:4]=='0)
+        if(dry[8:1]==9'd240 && drx[9:4]=='0)
           status[7] <= 1'b1;
-        else if (dry[9:1]==10'd524)
+        else if (dry == 10'd520)
           status[7] <= 1'b0;
       end // else: !if(bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF)
     end // else: !if(reset)
   end
 
+  always_comb begin
+    nmta_en = 0;
+    nmtb_en = 0;
+
+    if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF) begin
+      unique case (bus_addr[2:0])
+        3'd7: begin
+          if (vram_addr >=16'h2000 && vram_addr <= 16'h3EFF) begin
+            if (vram_addr[11:8] <= 4'h3 ||
+                (vram_addr[11:8]>=4'h4 && vram_addr[11:8]<=4'h7 && ~mirror_cfg) ||
+                (vram_addr[11:8]>=4'h8 && vram_addr[11:8]<=4'hB && mirror_cfg))
+              nmta_en = ~bus_wr;
+            else
+              nmtb_en = ~bus_wr;
+          end
+        end
+      endcase
+    end
+  end
+
   ////////////////////////////////////////////////////////////
- //               RENDERING LOGIC                          //
-////////////////////////////////////////////////////////////
+  //               RENDERING LOGIC                          //
+  ////////////////////////////////////////////////////////////
 
   logic hs, vs, blank;
   logic [9:0] drx, dry;
 
   vga_controller ITERATOR (.Clk(vga_clk), .Reset(reset),
                            .blank, .hs, .vs, .DrawX(drx), .DrawY(dry));
-// NMI generation - pulls low based on VBL status flag and Control configuration
+  // NMI generation - pulls low based on VBL status flag and Control configuration
   assign nmi = ~(status[7] & control[7]);
 
   assign VGA_HS = hs;
@@ -195,24 +205,24 @@ module ppu(input        ppu_clk,
 
   // color palette (colors)
   localparam logic [11:0] vga [0:63] = '{12'h777, 12'h00F, 12'h00B, 12'h42B,
-                                       12'h908, 12'hA02, 12'hA10, 12'h810,
-                                       12'h530, 12'h070, 12'h060, 12'h050,
-                                       12'h045, 12'h000, 12'h000, 12'h000,
-                                       12'hBBB, 12'h07F, 12'h05F, 12'h64F,
-                                       12'hD0C, 12'hE05, 12'hF30, 12'hE51,
-                                       12'hA70, 12'h0B0, 12'h0A0, 12'h0A4,
-                                       12'h088, 12'h000, 12'h000, 12'h000,
-                                       12'hFFF, 12'h3BF, 12'h68F, 12'h97F,
-                                       12'hF7F, 12'hF59, 12'hF75, 12'hFA4,
-                                       12'hFB0, 12'hBF1, 12'h5D5, 12'h5F9,
-                                       12'h0ED, 12'h777, 12'h000, 12'h000,
-                                       12'hFFF, 12'hAEF, 12'hBBF, 12'hDBF,
-                                       12'hFBF, 12'hFAC, 12'hFDB, 12'hFEA,
-                                       12'hFD7, 12'hDF7, 12'hBFB, 12'hBFD,
-                                       12'h0FF, 12'hFDF, 12'h000, 12'h000};
+                                         12'h908, 12'hA02, 12'hA10, 12'h810,
+                                         12'h530, 12'h070, 12'h060, 12'h050,
+                                         12'h045, 12'h000, 12'h000, 12'h000,
+                                         12'hBBB, 12'h07F, 12'h05F, 12'h64F,
+                                         12'hD0C, 12'hE05, 12'hF30, 12'hE51,
+                                         12'hA70, 12'h0B0, 12'h0A0, 12'h0A4,
+                                         12'h088, 12'h000, 12'h000, 12'h000,
+                                         12'hFFF, 12'h3BF, 12'h68F, 12'h97F,
+                                         12'hF7F, 12'hF59, 12'hF75, 12'hFA4,
+                                         12'hFB0, 12'hBF1, 12'h5D5, 12'h5F9,
+                                         12'h0ED, 12'h777, 12'h000, 12'h000,
+                                         12'hFFF, 12'hAEF, 12'hBBF, 12'hDBF,
+                                         12'hFBF, 12'hFAC, 12'hFDB, 12'hFEA,
+                                         12'hFD7, 12'hDF7, 12'hBFB, 12'hBFD,
+                                         12'h0FF, 12'hFDF, 12'h000, 12'h000};
 
   // intermediary to convert nametable/attribute address to nmta vs nmtb
-  logic [9:0]            nt_addr, attr_addr;
+  logic [9:0]             nt_addr, attr_addr;
 
   logic                   nt_en, altpat1_en, altpat2_en, alt_attr_en;
   logic [7:0]             nt_data;
@@ -241,7 +251,8 @@ module ppu(input        ppu_clk,
   // sufficient state.
   always_comb begin
     // record in either nametable as offset from 0
-    nt_addr = ndry[7:3]*32 + ndrx;
+    nt_addr = {ndry[7:3], ndrx};
+    attr_addr = 10'h3C0 + {ndry[7:5], ndrx[4:2]};
 
     nt_en = 0;
     altpat1_en = 0;
@@ -263,14 +274,24 @@ module ppu(input        ppu_clk,
           nt_data = render_nmtb_data;
       end
 
+      4'd2, 4'd3: begin
+        alt_attr_en = 1'b1;
+        render_nmt_addr = attr_addr;
+
+        if(control[1:0]==2'b0 || control[1]^mirror_cfg)
+          nt_data = render_nmta_data;
+        else
+          nt_data = render_nmtb_data;
+      end
+
       4'd4, 4'd5: begin
         altpat1_en = 1'b1;
-        render_pattern_addr = {1'b0, nt, 1'b0, ndry[2:0]};
+        render_pattern_addr = {control[4], nt, 1'b0, ndry[2:0]};
       end
 
       4'd6, 4'd7: begin
         altpat2_en = 1'b1;
-        render_pattern_addr = {1'b1, nt, 1'b0, ndry[2:0]};
+        render_pattern_addr = {control[4], nt, 1'b1, ndry[2:0]};
       end
     endcase
   end
@@ -279,7 +300,8 @@ module ppu(input        ppu_clk,
   logic [0:7]             pat1, pat2, attr;
 
   // Registers
-  logic [0:7]             nt, altpat1, altpat2, alt_attr;
+  logic [7:0]             nt;
+  logic [0:7]            altpat1, altpat2, alt_attr;
 
   // Latching Registers
   always_ff @ (posedge vga_clk) begin
@@ -315,26 +337,44 @@ module ppu(input        ppu_clk,
 
   // color output
   wire [11:0] color;
-  always_comb begin
-    color = vga[{pat1[drx[3:1]], pat2[drx[3:1]], 4'd0}];
+  logic [7:0] my_color;
 
-    VGA_R = '0;
-    VGA_G = '0;
-    VGA_B = '0;
+  logic [3:0] vga_r, vga_g, vga_b;
+
+  always_comb begin
+    my_color = '0;
+
+    if (mask[0])
+      color = vga[{pat2[drx[3:1]], pat1[drx[3:1]], 6'd0}];
+    else begin
+      my_color = palette[{2'b0, attr[{dry[5], drx[5], 1'b0} +: 2],
+                          pat2[drx[3:1]], pat1[drx[3:1]]}];
+      color = vga[my_color];
+    end
+
+    vga_r = '0;
+    vga_g = '0;
+    vga_b = '0;
 
     if(~blank || (drx>511) || dry>(479)) begin
-      VGA_R = '0;
-      VGA_G = '0;
-      VGA_B = '0;
+      vga_r = '0;
+      vga_g = '0;
+      vga_b = '0;
     end
 
     else begin
       if (mask[3] && ((drx>>1)>8 || mask[1])) begin
-        VGA_R = color[11:8];
-        VGA_G = color[7:4];
-        VGA_B = color[3:0];
+        vga_r = color[11:8];
+        vga_g = color[7:4];
+        vga_b = color[3:0];
       end
     end
+  end
+
+  always_ff @ (vga_clk) begin
+    VGA_R <= vga_r;
+    VGA_B <= vga_b;
+    VGA_G <= vga_g;
   end
 
 endmodule

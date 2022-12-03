@@ -143,12 +143,12 @@ module ppu(input        ppu_clk,
                .data_a(bus_din), .wren_a(SPR_EN), .q_a(SPR_OUT));
 
   // containerize the bus
-  ppu_databus gfxbus (.ADDR(bus_addr), .WR(bus_wr), .CPU_DO(bus_din), .CHRROM_Q(ROM_OUT),
+  ppu_databus gfxbus (.ADDR(bus_addr), .WR(bus_wr), .CPU_DO(bus_din), .CHRROM_Q(ROM_OUT), .clk(cpu_clk),
                       .NMTA_Q(NMTA_OUT), .NMTB_Q(NMTB_OUT), .SPR_Q(SPR_OUT), .STAT_Q(status),
                       .PALETTE(palette[palette_addr]), .VRAM_PREFIX(VRAM_ADDR[15:8]), .MIRROR(mirror_cfg),
                       .NMTA_EN(NMTA_EN), .NMTB_EN(NMTB_EN), .SPR_EN(SPR_EN), .MSK_EN(mask_en),
                       .STAT_EN(STAT_EN), .SCRLL_EN(scroll_en), .OAM_ADDR_EN(OAM_ADDR_EN), .CTRL_EN(ctrl_en),
-                      .VRAM_ADDR_EN(VRAM_ADDR_EN), .PALETTE_EN(palette_en), .BUS_OUT(bus_out), .VRAM_ACTIVE(vram_active));
+                      .VRAM_ADDR_EN(VRAM_ADDR_EN), .PALETTE_EN(palette_en), .out(bus_out), .VRAM_ACTIVE(vram_active));
 
   logic hs, vs, blank;
   logic [9:0] drx, dry;
@@ -189,11 +189,8 @@ module ppu(input        ppu_clk,
   logic [4:0]             ndrx;
   logic [7:0]             ndry;
 
-  // use always_comb to figure out memory stuff. use ff to latch data
-  // Kinda FSM, but you don't actually need state - the pixel counter is in of itself
-  // sufficient state.
+  // address computation
   always_comb begin
-    // address computation
     if (drx >= 496) begin
       ndrx = '0;
 
@@ -205,7 +202,12 @@ module ppu(input        ppu_clk,
       ndrx = drx[8:4] + 5'd1;
       ndry = dry[8:1];
     end // else: !if(drx >= 496)
+  end
 
+  // use always_comb to figure out memory stuff. use ff to latch data
+  // Kinda FSM, but you don't actually need state - the pixel counter is in of itself
+  // sufficient state.
+  always_comb begin
     // record in either nametable as offset from 0
     nt_addr = ndry[7:3]*32 + ndrx;
 

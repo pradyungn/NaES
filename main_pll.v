@@ -37,32 +37,20 @@
 `timescale 1 ps / 1 ps
 // synopsys translate_on
 module main_pll (
-	areset,
 	inclk0,
 	c0,
 	c1,
 	c2,
-	c3,
-	locked);
+	c3);
 
-	input	  areset;
 	input	  inclk0;
 	output	  c0;
 	output	  c1;
 	output	  c2;
 	output	  c3;
-	output	  locked;
-`ifndef ALTERA_RESERVED_QIS
-// synopsys translate_off
-`endif
-	tri0	  areset;
-`ifndef ALTERA_RESERVED_QIS
-// synopsys translate_on
-`endif
 
 	wire [4:0] sub_wire0;
-	wire  sub_wire5;
-	wire [0:0] sub_wire8 = 1'h0;
+	wire [0:0] sub_wire7 = 1'h0;
 	wire [3:3] sub_wire4 = sub_wire0[3:3];
 	wire [2:2] sub_wire3 = sub_wire0[2:2];
 	wire [1:1] sub_wire2 = sub_wire0[1:1];
@@ -71,16 +59,14 @@ module main_pll (
 	wire  c1 = sub_wire2;
 	wire  c2 = sub_wire3;
 	wire  c3 = sub_wire4;
-	wire  locked = sub_wire5;
-	wire  sub_wire6 = inclk0;
-	wire [1:0] sub_wire7 = {sub_wire8, sub_wire6};
+	wire  sub_wire5 = inclk0;
+	wire [1:0] sub_wire6 = {sub_wire7, sub_wire5};
 
 	altpll	altpll_component (
-				.areset (areset),
-				.inclk (sub_wire7),
+				.inclk (sub_wire6),
 				.clk (sub_wire0),
-				.locked (sub_wire5),
 				.activeclock (),
+				.areset (1'b0),
 				.clkbad (),
 				.clkena ({6{1'b1}}),
 				.clkloss (),
@@ -95,6 +81,7 @@ module main_pll (
 				.fbout (),
 				.fref (),
 				.icdrclk (),
+				.locked (),
 				.pfdena (1'b1),
 				.phasecounterselect ({4{1'b1}}),
 				.phasedone (),
@@ -127,9 +114,9 @@ module main_pll (
 		altpll_component.clk2_duty_cycle = 50,
 		altpll_component.clk2_multiply_by = 2684659,
 		altpll_component.clk2_phase_shift = "0",
-		altpll_component.clk3_divide_by = 2000,
+		altpll_component.clk3_divide_by = 12500,
 		altpll_component.clk3_duty_cycle = 50,
-		altpll_component.clk3_multiply_by = 1007,
+		altpll_component.clk3_multiply_by = 6293,
 		altpll_component.clk3_phase_shift = "0",
 		altpll_component.compensate_clock = "CLK0",
 		altpll_component.inclk0_input_frequency = 20000,
@@ -139,7 +126,7 @@ module main_pll (
 		altpll_component.operation_mode = "NORMAL",
 		altpll_component.pll_type = "AUTO",
 		altpll_component.port_activeclock = "PORT_UNUSED",
-		altpll_component.port_areset = "PORT_USED",
+		altpll_component.port_areset = "PORT_UNUSED",
 		altpll_component.port_clkbad0 = "PORT_UNUSED",
 		altpll_component.port_clkbad1 = "PORT_UNUSED",
 		altpll_component.port_clkloss = "PORT_UNUSED",
@@ -148,7 +135,7 @@ module main_pll (
 		altpll_component.port_fbin = "PORT_UNUSED",
 		altpll_component.port_inclk0 = "PORT_USED",
 		altpll_component.port_inclk1 = "PORT_UNUSED",
-		altpll_component.port_locked = "PORT_USED",
+		altpll_component.port_locked = "PORT_UNUSED",
 		altpll_component.port_pfdena = "PORT_UNUSED",
 		altpll_component.port_phasecounterselect = "PORT_UNUSED",
 		altpll_component.port_phasedone = "PORT_UNUSED",
@@ -179,7 +166,6 @@ module main_pll (
 		altpll_component.port_extclk1 = "PORT_UNUSED",
 		altpll_component.port_extclk2 = "PORT_UNUSED",
 		altpll_component.port_extclk3 = "PORT_UNUSED",
-		altpll_component.self_reset_on_loss_lock = "OFF",
 		altpll_component.width_clock = 5;
 
 
@@ -203,7 +189,7 @@ endmodule
 // Retrieval info: PRIVATE: CREATE_INCLK1_CHECK STRING "0"
 // Retrieval info: PRIVATE: CUR_DEDICATED_CLK STRING "c0"
 // Retrieval info: PRIVATE: CUR_FBIN_CLK STRING "c0"
-// Retrieval info: PRIVATE: DEVICE_SPEED_GRADE STRING "7"
+// Retrieval info: PRIVATE: DEVICE_SPEED_GRADE STRING "Any"
 // Retrieval info: PRIVATE: DIV_FACTOR0 NUMERIC "1"
 // Retrieval info: PRIVATE: DIV_FACTOR1 NUMERIC "1"
 // Retrieval info: PRIVATE: DIV_FACTOR2 NUMERIC "1"
@@ -215,7 +201,7 @@ endmodule
 // Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE0 STRING "21.477274"
 // Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE1 STRING "1.789773"
 // Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE2 STRING "5.369318"
-// Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE3 STRING "25.174999"
+// Retrieval info: PRIVATE: EFF_OUTPUT_FREQ_VALUE3 STRING "25.172001"
 // Retrieval info: PRIVATE: EXPLICIT_SWITCHOVER_COUNTER STRING "0"
 // Retrieval info: PRIVATE: EXT_FEEDBACK_RADIO STRING "0"
 // Retrieval info: PRIVATE: GLOCKED_COUNTER_EDIT_CHANGED STRING "1"
@@ -231,7 +217,7 @@ endmodule
 // Retrieval info: PRIVATE: INCLK1_FREQ_UNIT_COMBO STRING "MHz"
 // Retrieval info: PRIVATE: INTENDED_DEVICE_FAMILY STRING "MAX 10"
 // Retrieval info: PRIVATE: INT_FEEDBACK__MODE_RADIO STRING "1"
-// Retrieval info: PRIVATE: LOCKED_OUTPUT_CHECK STRING "1"
+// Retrieval info: PRIVATE: LOCKED_OUTPUT_CHECK STRING "0"
 // Retrieval info: PRIVATE: LONG_SCAN_RADIO STRING "1"
 // Retrieval info: PRIVATE: LVDS_MODE_DATA_RATE STRING "Not Available"
 // Retrieval info: PRIVATE: LVDS_MODE_DATA_RATE_DIRTY NUMERIC "0"
@@ -252,7 +238,7 @@ endmodule
 // Retrieval info: PRIVATE: OUTPUT_FREQ0 STRING "21.47727300"
 // Retrieval info: PRIVATE: OUTPUT_FREQ1 STRING "1.78977300"
 // Retrieval info: PRIVATE: OUTPUT_FREQ2 STRING "5.36931800"
-// Retrieval info: PRIVATE: OUTPUT_FREQ3 STRING "25.17500000"
+// Retrieval info: PRIVATE: OUTPUT_FREQ3 STRING "25.17200000"
 // Retrieval info: PRIVATE: OUTPUT_FREQ_MODE0 STRING "1"
 // Retrieval info: PRIVATE: OUTPUT_FREQ_MODE1 STRING "1"
 // Retrieval info: PRIVATE: OUTPUT_FREQ_MODE2 STRING "1"
@@ -273,7 +259,7 @@ endmodule
 // Retrieval info: PRIVATE: PHASE_SHIFT_UNIT2 STRING "deg"
 // Retrieval info: PRIVATE: PHASE_SHIFT_UNIT3 STRING "ps"
 // Retrieval info: PRIVATE: PLL_ADVANCED_PARAM_CHECK STRING "0"
-// Retrieval info: PRIVATE: PLL_ARESET_CHECK STRING "1"
+// Retrieval info: PRIVATE: PLL_ARESET_CHECK STRING "0"
 // Retrieval info: PRIVATE: PLL_AUTOPLL_CHECK NUMERIC "1"
 // Retrieval info: PRIVATE: PLL_ENHPLL_CHECK NUMERIC "0"
 // Retrieval info: PRIVATE: PLL_FASTPLL_CHECK NUMERIC "0"
@@ -325,9 +311,9 @@ endmodule
 // Retrieval info: CONSTANT: CLK2_DUTY_CYCLE NUMERIC "50"
 // Retrieval info: CONSTANT: CLK2_MULTIPLY_BY NUMERIC "2684659"
 // Retrieval info: CONSTANT: CLK2_PHASE_SHIFT STRING "0"
-// Retrieval info: CONSTANT: CLK3_DIVIDE_BY NUMERIC "2000"
+// Retrieval info: CONSTANT: CLK3_DIVIDE_BY NUMERIC "12500"
 // Retrieval info: CONSTANT: CLK3_DUTY_CYCLE NUMERIC "50"
-// Retrieval info: CONSTANT: CLK3_MULTIPLY_BY NUMERIC "1007"
+// Retrieval info: CONSTANT: CLK3_MULTIPLY_BY NUMERIC "6293"
 // Retrieval info: CONSTANT: CLK3_PHASE_SHIFT STRING "0"
 // Retrieval info: CONSTANT: COMPENSATE_CLOCK STRING "CLK0"
 // Retrieval info: CONSTANT: INCLK0_INPUT_FREQUENCY NUMERIC "20000"
@@ -336,7 +322,7 @@ endmodule
 // Retrieval info: CONSTANT: OPERATION_MODE STRING "NORMAL"
 // Retrieval info: CONSTANT: PLL_TYPE STRING "AUTO"
 // Retrieval info: CONSTANT: PORT_ACTIVECLOCK STRING "PORT_UNUSED"
-// Retrieval info: CONSTANT: PORT_ARESET STRING "PORT_USED"
+// Retrieval info: CONSTANT: PORT_ARESET STRING "PORT_UNUSED"
 // Retrieval info: CONSTANT: PORT_CLKBAD0 STRING "PORT_UNUSED"
 // Retrieval info: CONSTANT: PORT_CLKBAD1 STRING "PORT_UNUSED"
 // Retrieval info: CONSTANT: PORT_CLKLOSS STRING "PORT_UNUSED"
@@ -345,7 +331,7 @@ endmodule
 // Retrieval info: CONSTANT: PORT_FBIN STRING "PORT_UNUSED"
 // Retrieval info: CONSTANT: PORT_INCLK0 STRING "PORT_USED"
 // Retrieval info: CONSTANT: PORT_INCLK1 STRING "PORT_UNUSED"
-// Retrieval info: CONSTANT: PORT_LOCKED STRING "PORT_USED"
+// Retrieval info: CONSTANT: PORT_LOCKED STRING "PORT_UNUSED"
 // Retrieval info: CONSTANT: PORT_PFDENA STRING "PORT_UNUSED"
 // Retrieval info: CONSTANT: PORT_PHASECOUNTERSELECT STRING "PORT_UNUSED"
 // Retrieval info: CONSTANT: PORT_PHASEDONE STRING "PORT_UNUSED"
@@ -376,24 +362,19 @@ endmodule
 // Retrieval info: CONSTANT: PORT_extclk1 STRING "PORT_UNUSED"
 // Retrieval info: CONSTANT: PORT_extclk2 STRING "PORT_UNUSED"
 // Retrieval info: CONSTANT: PORT_extclk3 STRING "PORT_UNUSED"
-// Retrieval info: CONSTANT: SELF_RESET_ON_LOSS_LOCK STRING "OFF"
 // Retrieval info: CONSTANT: WIDTH_CLOCK NUMERIC "5"
 // Retrieval info: USED_PORT: @clk 0 0 5 0 OUTPUT_CLK_EXT VCC "@clk[4..0]"
-// Retrieval info: USED_PORT: areset 0 0 0 0 INPUT GND "areset"
 // Retrieval info: USED_PORT: c0 0 0 0 0 OUTPUT_CLK_EXT VCC "c0"
 // Retrieval info: USED_PORT: c1 0 0 0 0 OUTPUT_CLK_EXT VCC "c1"
 // Retrieval info: USED_PORT: c2 0 0 0 0 OUTPUT_CLK_EXT VCC "c2"
 // Retrieval info: USED_PORT: c3 0 0 0 0 OUTPUT_CLK_EXT VCC "c3"
 // Retrieval info: USED_PORT: inclk0 0 0 0 0 INPUT_CLK_EXT GND "inclk0"
-// Retrieval info: USED_PORT: locked 0 0 0 0 OUTPUT GND "locked"
-// Retrieval info: CONNECT: @areset 0 0 0 0 areset 0 0 0 0
 // Retrieval info: CONNECT: @inclk 0 0 1 1 GND 0 0 0 0
 // Retrieval info: CONNECT: @inclk 0 0 1 0 inclk0 0 0 0 0
 // Retrieval info: CONNECT: c0 0 0 0 0 @clk 0 0 1 0
 // Retrieval info: CONNECT: c1 0 0 0 0 @clk 0 0 1 1
 // Retrieval info: CONNECT: c2 0 0 0 0 @clk 0 0 1 2
 // Retrieval info: CONNECT: c3 0 0 0 0 @clk 0 0 1 3
-// Retrieval info: CONNECT: locked 0 0 0 0 @locked 0 0 0 0
 // Retrieval info: GEN_FILE: TYPE_NORMAL main_pll.v TRUE
 // Retrieval info: GEN_FILE: TYPE_NORMAL main_pll.ppf TRUE
 // Retrieval info: GEN_FILE: TYPE_NORMAL main_pll.inc FALSE

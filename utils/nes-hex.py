@@ -42,13 +42,6 @@ def main():
 
     chr_size = int.from_bytes(f.read(1), byteorder="big")
 
-    if chr_size==0:
-        print("CHR-RAM IS NOT SUPPORTED BY NaES: LAZY DEV AT WORK")
-        return
-    elif chr_size>1:
-        print("CHR-ROM IS NOT SUPPORTED BY NaES: TOO CHUNGUS")
-        return
-
     flags6 = int.from_bytes(f.read(1), byteorder="big")
 
     # check bit 0 for vertical vs horizontal mirroring of NameTables
@@ -76,6 +69,13 @@ def main():
 
     dump.write("END;")
     dump.close()
+
+    if chr_size==0:
+        print("CHR-RAM IS NOT SUPPORTED BY NaES: LAZY DEV AT WORK")
+        return
+    elif chr_size>1:
+        print("CHR-ROM IS NOT SUPPORTED BY NaES: TOO CHUNGUS")
+        return
 
     dump = open(f"{name}-chr.mif", "w")
     dump.write("DEPTH=8192;\n")

@@ -1,25 +1,24 @@
 module ppu_databus (
-                    input              cpu_clk,
+                    input clk,
+                    input [15:0] ADDR,
+                    input        WR,
 
-                    input [15:0]       ADDR,
-                    input              WR,
+                    input [7:0]  CPU_DO,
+                                 CHRROM_Q,
+                                 NMTA_Q,
+                                 NMTB_Q,
+                                 SPR_Q,
+                                 STAT_Q,
+                                 PALETTE,
+                                 VRAM_PREFIX,
 
-                    input [7:0]        CPU_DO,
-                                       CHRROM_Q,
-                                       NMTA_Q,
-                                       NMTB_Q,
-                                       SPR_Q,
-                                       STAT_Q,
-                                       PALETTE,
-                                       VRAM_PREFIX,
+                    input        MIRROR,
 
-                    input              MIRROR,
+                    output       NMTA_EN, NMTB_EN, SPR_EN, PALETTE_EN,
+                    output       CTRL_EN, STAT_EN, MSK_EN, SCRLL_EN, OAM_ADDR_EN, VRAM_ADDR_EN,
+                    output       DMA_TRIG, VRAM_ACTIVE,
 
-                    output             NMTA_EN, NMTB_EN, SPR_EN, PALETTE_EN,
-                    output             CTRL_EN, STAT_EN, MSK_EN, SCRLL_EN, OAM_ADDR_EN, VRAM_ADDR_EN,
-                    output             DMA_TRIG, VRAM_ACTIVE,
-
-                    output logic [7:0] out
+                    output [7:0] out
                     );
 
   // NAME SCHEME
@@ -36,8 +35,7 @@ module ppu_databus (
   logic [7:0]                    VRAM_BUS, BUS_OUT;
   logic                          WRITE_VRAM;
 
-  always_ff @ (posedge cpu_clk)
-    out <= BUS_OUT;
+  assign out = BUS_OUT;
 
   always_comb begin
     SPR_EN = 0;
@@ -53,7 +51,7 @@ module ppu_databus (
 
     BUS_OUT = '0;
 
-  if (ADDR>=16'h2000 && ADDR<=16'h3FFF) begin
+    if (ADDR>=16'h2000 && ADDR<=16'h3FFF) begin
       if (ADDR[2:0]==3'd0) begin
         // write-only - do not modify bus
         CTRL_EN = ~WR;
@@ -63,7 +61,7 @@ module ppu_databus (
       end else if (ADDR[2:0]==3'd2) begin
         // this is a read op, but we need to clear the address latches
         BUS_OUT = STAT_Q;
-        STAT_EN = WR;
+        STAT_EN = 1'b1;
       end
 
       // oamaddr

@@ -121,7 +121,7 @@ module ppu(input        ppu_clk,
             begin
               scroll_w <= ~scroll_w;
 
-              if(scroll_w)
+              if(~scroll_w)
                 scroll[15:8] <= bus_din;
               else
                 scroll[7:0] <= bus_din;
@@ -184,6 +184,11 @@ module ppu(input        ppu_clk,
             else
               nmtb_en = ~bus_wr;
           end
+        end
+
+        default: begin
+          nmta_en = 0;
+          nmtb_en = 0;
         end
       endcase
     end

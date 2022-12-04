@@ -18,7 +18,8 @@ module ppu(input        ppu_clk,
 
            output             nmi,
            output             VGA_HS, VGA_VS,
-           output [3:0]       VGA_R, VGA_G, VGA_B);
+           output [3:0]       VGA_R, VGA_G, VGA_B,
+           output [7:0]       feedback);
 
   // internal bus VRAM addr - you need to assign this in two
   // different writes to VRAM_ADDR i/o register
@@ -141,9 +142,9 @@ module ppu(input        ppu_clk,
               if(bus_wr)
                 bus_out <= pattern_out;
             end else if (vram_addr >= 16'h2000 && vram_addr <= 16'h3EFF) begin
-              if (vram_addr[11:8] <= 4'h3 ||
-                  (vram_addr[11:8]>=4'h4 && vram_addr[11:8]<=4'h7 && ~mirror_cfg) ||
-                  (vram_addr[11:8]>=4'h8 && vram_addr[11:8]<=4'hB && mirror_cfg)) begin
+              if (vram_addr[11:10] == 2'd0 ||
+                  (vram_addr[11:10]>=2'd1 && ~mirror_cfg) ||
+                  (vram_addr[11:10]==4'h2 && mirror_cfg)) begin
                 bus_out <= nmta_out;
               end else begin
                 bus_out <= nmtb_out;
@@ -176,9 +177,9 @@ module ppu(input        ppu_clk,
       unique case (bus_addr[2:0])
         3'd7: begin
           if (vram_addr >=16'h2000 && vram_addr <= 16'h3EFF) begin
-            if (vram_addr[11:8] <= 4'h3 ||
-                (vram_addr[11:8]>=4'h4 && vram_addr[11:8]<=4'h7 && ~mirror_cfg) ||
-                (vram_addr[11:8]>=4'h8 && vram_addr[11:8]<=4'hB && mirror_cfg))
+            if (vram_addr[11:10] == 2'd0 ||
+                (vram_addr[11:10]>=2'd1 && ~mirror_cfg) ||
+                (vram_addr[11:10]==4'h2 && mirror_cfg))
               nmta_en = ~bus_wr;
             else
               nmtb_en = ~bus_wr;
@@ -231,9 +232,12 @@ module ppu(input        ppu_clk,
   logic [4:0]             ndrx;
   logic [7:0]             ndry;
 
-  // address computation
+  // use always_comb to figure out memory stuff. use ff to latch data
+  // Kinda FSM, but you don't actually need state - the pixel counter is in of itself
+  // sufficient state.
   always_comb begin
-    if (drx >= 496) begin
+    // address computation
+    if (drx>>4 >= 31) begin
       ndrx = '0;
 
       if (dry >= 479)
@@ -244,14 +248,10 @@ module ppu(input        ppu_clk,
       ndrx = drx[8:4] + 5'd1;
       ndry = dry[8:1];
     end // else: !if(drx >= 496)
-  end
 
-  // use always_comb to figure out memory stuff. use ff to latch data
-  // Kinda FSM, but you don't actually need state - the pixel counter is in of itself
-  // sufficient state.
-  always_comb begin
     // record in either nametable as offset from 0
     nt_addr = {ndry[7:3], ndrx};
+    // nt_addr = '0;
     attr_addr = 10'h3C0 + {ndry[7:5], ndrx[4:2]};
 
     nt_en = 0;
@@ -263,45 +263,48 @@ module ppu(input        ppu_clk,
     render_pattern_addr = '0;
     nt_data = '0;
 
-    unique case (drx[3:0])
-      4'd0, 4'd1: begin
-        nt_en = 1'b1;
-        render_nmt_addr = nt_addr;
+    if (drx>>1 <= 255) begin
+      unique case (drx[3:0])
+        4'd0, 4'd1: begin
+          nt_en = 1'b1;
+          render_nmt_addr = nt_addr;
 
-        if(control[1:0]==2'b0 || control[1]^mirror_cfg)
-          nt_data = render_nmta_data;
-        else
-          nt_data = render_nmtb_data;
-      end
+          if(control[1:0]==2'b0 || control[1]^mirror_cfg)
+            nt_data = render_nmta_data;
+          else
+            nt_data = render_nmtb_data;
+        end
 
-      4'd2, 4'd3: begin
-        alt_attr_en = 1'b1;
-        render_nmt_addr = attr_addr;
+        4'd2, 4'd3: begin
+          alt_attr_en = 1'b1;
+          render_nmt_addr = attr_addr;
 
-        if(control[1:0]==2'b0 || control[1]^mirror_cfg)
-          nt_data = render_nmta_data;
-        else
-          nt_data = render_nmtb_data;
-      end
+          if(control[1:0]==2'b0 || control[1]^mirror_cfg)
+            nt_data = render_nmta_data;
+          else
+            nt_data = render_nmtb_data;
+        end
 
-      4'd4, 4'd5: begin
-        altpat1_en = 1'b1;
-        render_pattern_addr = {control[4], nt, 1'b0, ndry[2:0]};
-      end
+        4'd4, 4'd5: begin
+          altpat1_en = 1'b1;
+          render_pattern_addr = {control[4], nt, 1'b0, ndry[2:0]};
+        end
 
-      4'd6, 4'd7: begin
-        altpat2_en = 1'b1;
-        render_pattern_addr = {control[4], nt, 1'b1, ndry[2:0]};
-      end
-    endcase
+        4'd6, 4'd7: begin
+          altpat2_en = 1'b1;
+          render_pattern_addr = {control[4], nt, 1'b1, ndry[2:0]};
+        end
+      endcase
+    end // if(drx>>1 <= 255)
   end
 
   // Background Rendering
-  logic [0:7]             pat1, pat2, attr;
+  logic [0:7]             pat1, pat2;
+  logic [7:0]             attr;
 
   // Registers
-  logic [7:0]             nt;
-  logic [0:7]            altpat1, altpat2, alt_attr;
+  logic [0:7]            altpat1, altpat2;
+  logic [7:0]             nt, alt_attr;
 
   // Latching Registers
   always_ff @ (posedge vga_clk) begin
@@ -315,7 +318,7 @@ module ppu(input        ppu_clk,
       pat2 <= '0;
       attr <= '0;
     end else begin
-      if (drx[3:0]=='1) begin
+      if (drx>>1 <= 255 && drx[3:0]=='1) begin
         pat1 <= altpat1;
         pat2 <= altpat2;
         attr <= alt_attr;
@@ -356,7 +359,7 @@ module ppu(input        ppu_clk,
     vga_g = '0;
     vga_b = '0;
 
-    if(~blank || (drx>511) || dry>(479)) begin
+    if(~blank || ((drx>>1) > 255) || ((dry>>1) > 239)) begin
       vga_r = '0;
       vga_g = '0;
       vga_b = '0;

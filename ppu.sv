@@ -1,3 +1,9 @@
+//  ____  _   _
+// |  _ \| \ | | Pradyun Narkadamilli
+// | |_) |  \| | https://pradyun.tech
+// |  __/| |\  | MIT License
+// |_|   |_| \_| Copyright 2022 Pradyun Narkadamilli
+
 module ppu(input        ppu_clk,
            input              cpu_clk,
            input              ram_clk,
@@ -92,6 +98,18 @@ module ppu(input        ppu_clk,
 
       bus_out <= 0;
     end else begin
+      // separate event control for VBL flag - we need explicit
+      // event control. This backshifts priority handling
+      // and avoids the (VBL flag only set when bus-not-in-use)
+      // issue. This could be why I'm dropping frames here and there.
+      if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF && bus_addr[2:0]==3'd2 && bus_wr)
+        status[7] <= 0;
+      else if(dry[8:1]==9'd240 && drx[9:4]=='0)
+          status[7] <= 1'b1;
+      else if (dry == 10'd520)
+          status[7] <= 1'b0;
+
+      // case statement for isolated behaviors
       if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF) begin
         case (bus_addr[2:0])
           3'd0: if (~bus_wr)
@@ -100,7 +118,6 @@ module ppu(input        ppu_clk,
             mask <= bus_din;
           3'd2: if(bus_wr) begin
             bus_out <= status;
-            status[7] <= 0;
 
             vram_addr <= '0;
             scroll <= '0;
@@ -160,12 +177,6 @@ module ppu(input        ppu_clk,
         endcase
       end // if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF)
 
-      else begin
-        if(dry[8:1]==9'd240 && drx[9:4]=='0)
-          status[7] <= 1'b1;
-        else if (dry == 10'd520)
-          status[7] <= 1'b0;
-      end // else: !if(bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF)
     end // else: !if(reset)
   end
 

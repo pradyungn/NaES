@@ -83,7 +83,7 @@ module prg_rom (
 		altsyncram_component.address_aclr_a = "NONE",
 		altsyncram_component.clock_enable_input_a = "BYPASS",
 		altsyncram_component.clock_enable_output_a = "BYPASS",
-		altsyncram_component.init_file = "../NES_clone/MIF_FILES/nestest-prg.mif",
+		altsyncram_component.init_file = "../NES_clone/MIF_FILES/dk-prg.mif",
 		altsyncram_component.intended_device_family = "MAX 10",
 		altsyncram_component.lpm_hint = "ENABLE_RUNTIME_MOD=NO",
 		altsyncram_component.lpm_type = "altsyncram",

@@ -50,6 +50,7 @@ module ppu(input        ppu_clk,
   // Vars for rendering
   logic [12:0] render_pattern_addr;
   logic [9:0]  render_nmt_addr;
+  logic [7:0] fetch_addr, fetch_out;
   logic [7:0]  render_pattern_data, render_nmta_data, render_nmtb_data;
 
   // write-enable/data signals for RAM i/o interface
@@ -80,8 +81,8 @@ module ppu(input        ppu_clk,
                    .wren_b(1'b0), .q_b(render_nmtb_data));
 
   spr_ram OAM (.address_a((dma_hijack ? dma_addr : oam_addr)), .clock_a(ram_clk), .data_a(bus_din),
-               .wren_a(((oam_en && ~dma_hijack) || (dma_oam_en && dma_hijack))),
-               .q_a(oam_out));
+               .wren_a(((oam_en && ~dma_hijack) || (dma_oam_en && dma_hijack))), .q_a(oam_out),
+               .address_b(fetch_addr), .clock_b(vga_clk), .wren_b(1'b0), .q_b(fetch_out));
 
   always_ff @ (posedge cpu_clk) begin
     // Don't increment by default
@@ -390,8 +391,39 @@ module ppu(input        ppu_clk,
   end
 
   //
-  // SPRITE RENDERING
+  // SPRITE FETCHING
   //
+
+  // LINEAR SCAN
+
+  // state information
+  enum logic [3:0]
+       {MAINRD, EVAL, LTCH, INCRRD, IDL}
+       state, next;
+
+  logic [1:0] batchct;
+  logic [2:0] fetch_ct;
+
+  // render/patternfetch information
+  // (need to be stable outside of the scan FSM)
+  byte        oam_fetched [31:0];
+  byte        sprite_data [31:0];
+  logic [2:0] sprite_ct;
+
+  always_comb begin
+    next = IDL;
+
+    if (drx > 511 || dry > 479)
+      next = IDL;
+    else
+      case (state)
+        IDL: next = (drx==0) ? MAINRD : IDL;
+
+        MAINRD: next = (fetch_addr > 252) ? IDL : EVAL;
+
+        EVAL: (fetch_out == dry) ? LTCH : MAINRD;
+      endcase // case (state)
+  end
 
   // color output
   wire [11:0] color;

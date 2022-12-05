@@ -9,16 +9,14 @@ module databus (input [15:0] ADDR,
                 input [7:0]  VIDEO_BUS,
 
                 input        DMA,
-                input [15:0]  DMA_ADDR,
+                input [15:0] DMA_ADDR,
 
                 output [7:0] BUS_OUT,
+                output [15:0] INT_ADDR,
 
                 output       CONTROL1_EN,
                 output       CONTROL2_EN,
                 output       SYSRAM_EN);
-
-  // internal ADDR
-  logic [15:0]                INT_ADDR;
 
   always_comb begin
     INT_ADDR = DMA ? DMA_ADDR : ADDR;

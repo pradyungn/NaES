@@ -17,7 +17,7 @@ module ppu(input        ppu_clk,
            input              reset,
 
            output             dma_hijack,
-           output             dma_addr,
+           output      [15:0] dma_addr,
            output logic [7:0] bus_out,
 
            input              mirror_cfg,
@@ -58,7 +58,8 @@ module ppu(input        ppu_clk,
   logic [7:0]  nmta_out, nmtb_out, oam_out, pattern_out;
 
   // DMA submodule
-  logic dma_oam_addr, dma_oam_en;
+  logic [7:0]  dma_oam_addr;
+  logic dma_oam_en;
 
   dma DIRMA (.clk(cpu_clk), .bus_addr, .bus_data(bus_din), .bus_wr,
              .hijack(dma_hijack), .out_bus_addr(dma_addr), .oam_addr(dma_oam_addr),
@@ -80,7 +81,7 @@ module ppu(input        ppu_clk,
                    .address_b(render_nmt_addr), .clock_b(vga_clk),
                    .wren_b(1'b0), .q_b(render_nmtb_data));
 
-  spr_ram OAM (.address_a((dma_hijack ? dma_addr : oam_addr)), .clock_a(ram_clk), .data_a(bus_din),
+  spr_ram OAM (.address_a((dma_hijack ? dma_oam_addr : oam_addr)), .clock_a(ram_clk), .data_a(bus_din),
                .wren_a(((oam_en && ~dma_hijack) || (dma_oam_en && dma_hijack))), .q_a(oam_out),
                .address_b(fetch_addr), .clock_b(vga_clk), .wren_b(1'b0), .q_b(fetch_out));
 
@@ -516,24 +517,11 @@ module ppu(input        ppu_clk,
   wire [11:0] color;
   logic [7:0] my_color;
 
-  logic [7:0] sprite_color;
-  wire [11:0] vga_sprite_color;
-
   logic [3:0] vga_r, vga_g, vga_b;
-  logic [9:0] offset;
-  logic [1:0] sprite_pat;
 
   always_comb begin
     my_color = '0;
     offset = drx - sprite_data[1];
-
-    if (offset <= 7)
-      sprite_pat = {sprite_data[3][3'd7 - offset], sprite_data[2][3'd7 - offset]};
-    else
-      sprite_pat = '0;
-
-    sprite_color = palette[{1'b1, sprite_data[0][1:0], sprite_pat}];
-    vga_sprite_color = vga[sprite_color];
 
     if (mask[0])
       color = vga[{pat2[drx[3:1]], pat1[drx[3:1]], 6'd0}];
@@ -554,13 +542,7 @@ module ppu(input        ppu_clk,
     end
 
     else begin
-      if (mask[4] && ((drx>>1)>8 || mask[2]) && ^(sprite_pat)) begin
-        vga_r = vga_sprite_color[11:8];
-        vga_g = vga_sprite_color[7:4];
-        vga_b = vga_sprite_color[3:0];
-      end
-
-      else if (mask[3] && ((drx>>1)>8 || mask[1])) begin
+      if (mask[3] && ((drx>>1)>8 || mask[1])) begin
         vga_r = color[11:8];
         vga_g = color[7:4];
         vga_b = color[3:0];

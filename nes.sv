@@ -109,10 +109,10 @@ module NES (
   logic                    sysram_en;
   logic [7:0]              sysram_out, prgrom_out;
   logic [7:0]              PPU_BUS=0;
-  logic [15:0]              DMA_ADDR;
+  logic [15:0]              DMA_ADDR, INT_ADDR;
 
-  system_ram SYSRAM (bus_addr[10:0], CLK_NESRAM, bus_data, sysram_en, sysram_out);
-  prg_rom PRGROM (bus_addr[14:0], CLK_NESRAM, prgrom_out);
+  system_ram SYSRAM (INT_ADDR[10:0], CLK_NESRAM, bus_data, sysram_en, sysram_out);
+  prg_rom PRGROM (INT_ADDR[14:0], CLK_NESRAM, prgrom_out);
 
   ppu RICOH (.ppu_clk(CLK_PPU), .cpu_clk(CLK_NES), .vga_clk(CLK_VGA),
              .bus_addr(bus_addr), .bus_din(bus_data), .bus_wr(W_R),
@@ -123,5 +123,5 @@ module NES (
   databus BUS (.ADDR(bus_addr), .CPU_WR(W_R), .CPU_DO,
                .SYSRAM_Q(sysram_out), .PRGROM_Q(prgrom_out),
                .BUS_OUT(bus_data), .SYSRAM_EN(sysram_en),
-               .VIDEO_BUS(PPU_BUS), .DMA, .DMA_ADDR);
+               .VIDEO_BUS(PPU_BUS), .DMA, .DMA_ADDR, .INT_ADDR);
 endmodule // NES

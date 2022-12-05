@@ -265,6 +265,29 @@ module ppu(input        ppu_clk,
   logic [4:0]             ndrx;
   logic [7:0]             ndry;
 
+  //
+  // SPRITE FETCHING VARS
+  // (Backshifted for autocomplete stuff)
+  //
+
+  // render/patternfetch information
+  logic spr_latch_en;
+  logic [3:0] fetch_ct;
+  byte        oam_fetched [31:0];
+  byte        sprite_data [31:0];
+  logic [3:0] sprite_ct;
+
+  // sprite 0 flag
+  logic       alt_s0, s0;
+
+  // translated coords
+  logic [4:0] backshift;
+  logic [2:0] yc, diff;
+
+  //
+  // END OF SPRITE FETCH VARS
+  //
+
   // use always_comb to figure out memory stuff. use ff to latch data
   // Kinda FSM, but you don't actually need state - the pixel counter is in of itself
   // sufficient state.
@@ -295,6 +318,10 @@ module ppu(input        ppu_clk,
     render_nmt_addr = '0;
     render_pattern_addr = '0;
     nt_data = '0;
+
+    backshift = '0;
+    yc = '0;
+    diff = '0;
 
     // BG tile fetching - only happens during vision/trail of visible lines, and trail of pre-render line
     // TODO: Adapt to work w/ scrolling. Basically change the case statement & latching to work w scolling
@@ -345,6 +372,15 @@ module ppu(input        ppu_clk,
         end
       endcase
     end // if(drx>>1 <= 255)
+
+    else if ((dry<480) && (drx>=522 && drx<=553)) begin
+      backshift = drx-10'd522;
+      diff = ndry - 1 - oam_fetched[{backshift[4:2], 2'd0}];
+      yc = oam_fetched[{backshift[4:2], 2'd2}][7] ? 3'd7 - diff : diff;
+
+      render_pattern_addr = {control[3], (oam_fetched[{backshift[4:2], 2'd1}]),
+                             backshift[1], yc};
+    end
   end
 
   // Background Rendering
@@ -387,7 +423,8 @@ module ppu(input        ppu_clk,
 
       if (nt_en)
         nt <= nt_data;
-    end
+    end // else: !if(reset)
+
   end
 
   //
@@ -396,43 +433,107 @@ module ppu(input        ppu_clk,
 
   // LINEAR SCAN
 
-  // state information
-  enum logic [3:0]
-       {MAINRD, EVAL, LTCH, INCRRD, IDL}
-       state, next;
+  always_ff @ (posedge vga_clk) begin
+    if (reset) begin
+      spr_latch_en <= 1'b0;
 
-  logic [1:0] batchct;
-  logic [2:0] fetch_ct;
+      fetch_ct <= '0;
+      sprite_ct <= '0;
 
-  // render/patternfetch information
-  // (need to be stable outside of the scan FSM)
-  byte        oam_fetched [31:0];
-  byte        sprite_data [31:0];
-  logic [2:0] sprite_ct;
+      for(int i=0; i<32; i++)
+        oam_fetched[i] <= '0;
 
-  always_comb begin
-    next = IDL;
+      for(int i=0; i<32; i++)
+        oam_fetched[i] <= '0;
 
-    if (drx > 511 || dry > 479)
-      next = IDL;
-    else
-      case (state)
-        IDL: next = (drx==0) ? MAINRD : IDL;
+      s0 <= 1'b0;
+      alt_s0 <= 1'b0;
+    end else begin
+      if(drx==0) begin
+        for(int i=0; i<32; i++)
+          oam_fetched[i] <= '0;
 
-        MAINRD: next = (fetch_addr > 252) ? IDL : EVAL;
+        fetch_ct <= 0;
+        fetch_addr <= oam_addr;
+        alt_s0 <= 0;
+      end
 
-        EVAL: (fetch_out == dry) ? LTCH : MAINRD;
-      endcase // case (state)
+      if (drx<=511 && dry<480)
+        case (drx[2:0])
+          3'd0:
+            spr_latch_en <= 1'b0;
+
+          3'd1: begin
+            if(fetch_addr < 253)
+              fetch_addr <= fetch_addr + 1'd1;
+
+            if (fetch_out<=(dry>>1-~dry[0])
+                && fetch_out+8'd7>=(dry>>1 - ~dry[0])
+                && fetch_addr<253 && fetch_ct<8) begin
+              fetch_ct <= fetch_ct + 1'd1;
+              spr_latch_en <= 1;
+              oam_fetched[{fetch_ct, 2'd0}] <= fetch_out;
+
+              if (fetch_addr=='0)
+                alt_s0 <= 1'b1;
+            end
+          end
+
+          3'd3, 3'd5, 3'd7: begin
+            if(fetch_addr < 255)
+              fetch_addr <= fetch_addr + 1'd1;
+
+            if (spr_latch_en)
+              oam_fetched[{fetch_ct-1'd1, drx[2:1]}] <= fetch_out;
+          end
+        endcase // case (drx[2:0])
+
+      else if (dry<480 && drx>=522 && drx<=553) begin
+        if(drx==522) begin
+          s0 <= alt_s0;
+          sprite_ct <= fetch_ct;
+        end
+
+        case(backshift[1:0])
+          2'd0: begin
+            // direct copy of attribute & x position
+            sprite_data[{backshift[4:2], 2'd0}] <= oam_fetched[{backshift[4:2], 2'd2}];
+            sprite_data[{backshift[4:2], 2'd1}] <= oam_fetched[{backshift[4:2], 2'd3}];
+          end
+
+          2'd1, 2'd3: begin
+            if(backshift[4:2] < sprite_ct)
+              sprite_data[{backshift[4:2], 1'b0, backshift[1]}] <= render_pattern_data;
+            else
+              sprite_data[{backshift[4:2], 1'b0, backshift[1]}] <= '0;
+          end
+        endcase // case (backshift[1:0])
+      end
+    end
   end
 
   // color output
   wire [11:0] color;
   logic [7:0] my_color;
 
+  logic [7:0] sprite_color;
+  wire [11:0] vga_sprite_color;
+
   logic [3:0] vga_r, vga_g, vga_b;
+  logic [9:0] offset;
+  logic [1:0] sprite_pat;
 
   always_comb begin
     my_color = '0;
+    offset = drx - sprite_data[1];
+
+    if (offset <= 7)
+      sprite_pat = {sprite_data[3][3'd7 - offset], sprite_data[2][3'd7 - offset]};
+    else
+      sprite_pat = '0;
+
+    sprite_color = palette[{1'b1, sprite_data[0][1:0], sprite_pat}];
+    vga_sprite_color = vga[sprite_color];
 
     if (mask[0])
       color = vga[{pat2[drx[3:1]], pat1[drx[3:1]], 6'd0}];
@@ -453,10 +554,13 @@ module ppu(input        ppu_clk,
     end
 
     else begin
-      // priority sprite rendering - maybe use a mux?
-      // could use some kind of for loop...
-      // this becomes an else block
-      if (mask[3] && ((drx>>1)>8 || mask[1])) begin
+      if (mask[4] && ((drx>>1)>8 || mask[2]) && ^(sprite_pat)) begin
+        vga_r = vga_sprite_color[11:8];
+        vga_g = vga_sprite_color[7:4];
+        vga_b = vga_sprite_color[3:0];
+      end
+
+      else if (mask[3] && ((drx>>1)>8 || mask[1])) begin
         vga_r = color[11:8];
         vga_g = color[7:4];
         vga_b = color[3:0];

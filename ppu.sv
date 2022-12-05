@@ -295,8 +295,11 @@ module ppu(input        ppu_clk,
     render_pattern_addr = '0;
     nt_data = '0;
 
-    // BG tile fetching - only happens during visible part of scanline
-    if (drx>>1 <= 255 || drx >= 768) begin
+    // BG tile fetching - only happens during vision/trail of visible lines, and trail of pre-render line
+    // TODO: Adapt to work w/ scrolling. Basically change the case statement & latching to work w scolling
+    // need to change indexing statements slightly as well
+
+    if (((drx>>1 < 256 || drx >= 768) && (dry>>1) < 240) || (drx >= 768 && dry==524)) begin
       unique case (drx[3:0])
         4'd0, 4'd1: begin
           nt_en = 1'b1;
@@ -363,11 +366,14 @@ module ppu(input        ppu_clk,
       pat2 <= '0;
       attr <= '0;
     end else begin
-      if (drx>>1 <= 255 && drx[3:0]=='1) begin
-        pat1 <= altpat1;
-        pat2 <= altpat2;
-        attr <= alt_attr;
-      end
+      // BG tile fetching - only happens during vision/trail of visible lines, and trail of pre-render line
+      if ((((drx>>1 < 256 || drx>=768) && (dry>>1) < 240) || (drx >= 768 && dry==524))
+        && drx[3:0]=='1) begin
+
+          pat1 <= altpat1;
+          pat2 <= altpat2;
+          attr <= alt_attr;
+        end
 
       if (altpat1_en)
         altpat1 <= render_pattern_data;

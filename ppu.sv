@@ -34,7 +34,7 @@ module ppu(input        ppu_clk,
   logic [7:0]                 oam_addr, mask, status, control;
 
   logic                       addr_w, scroll_w; // tracks 1st vs second write to vram addr
-  logic                       incr; // pipelined incrementation signal for vram addr
+  logic                       incr, oam_incr; // pipelined incrementation signal for vram/oam
 
   logic [7:0]                 palette [31:0];
   logic [4:0]                 palette_addr;
@@ -56,6 +56,13 @@ module ppu(input        ppu_clk,
   logic        nmta_en, nmtb_en, oam_en;
   logic [7:0]  nmta_out, nmtb_out, oam_out, pattern_out;
 
+  // DMA submodule
+  logic dma_oam_addr, dma_oam_en;
+
+  dma DIRMA (.clk(cpu_clk), .bus_addr, .bus_data(bus_din), .bus_wr,
+             .hijack(dma_hijack), .out_bus_addr(dma_addr), .oam_addr(dma_oam_addr),
+             .oam_en(dma_oam_en));
+
   // ram declarations
   chr_rom pattern (.address_a(vram_addr[12:0]), .clock_a(ram_clk),
                    .wren_a(1'b0), .q_a(pattern_out),
@@ -72,23 +79,28 @@ module ppu(input        ppu_clk,
                    .address_b(render_nmt_addr), .clock_b(vga_clk),
                    .wren_b(1'b0), .q_b(render_nmtb_data));
 
-  spr_ram OAM (.address_a(oam_addr), .clock_a(ram_clk),
-               .data_a(bus_din), .wren_a(oam_en), .q_a(oam_out));
+  spr_ram OAM (.address_a((dma_hijack ? dma_addr : oam_addr)), .clock_a(ram_clk), .data_a(bus_din),
+               .wren_a(((oam_en && ~dma_hijack) || (dma_oam_en && dma_hijack))),
+               .q_a(oam_out));
 
   always_ff @ (posedge cpu_clk) begin
-    // write signals
-    oam_en <= 0;
+    // Don't increment by default
     incr <= 0;
+    oam_incr <= 0;
 
     if (incr)
       vram_addr <= vram_addr + (control[2] ? 8'd32 : 8'd1);
+
+    if ((drx>=514 && drx <= 641) && (dry<480 || dry==524))
+      oam_addr <= '0;
+    else if (oam_incr)
+      oam_addr <= oam_addr + 1'b1;
 
     if (reset) begin
       mask <= '0;
       control <= '0;
       status <= '0;
       oam_addr <= '0;
-
 
       scroll <= '0;
       vram_addr <= '0;
@@ -105,9 +117,9 @@ module ppu(input        ppu_clk,
       if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF && bus_addr[2:0]==3'd2 && bus_wr)
         status[7] <= 0;
       else if(dry[8:1]==9'd240 && drx[9:4]=='0)
-          status[7] <= 1'b1;
+        status[7] <= 1'b1;
       else if (dry == 10'd520)
-          status[7] <= 1'b0;
+        status[7] <= 1'b0;
 
       // case statement for isolated behaviors
       if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF) begin
@@ -125,13 +137,11 @@ module ppu(input        ppu_clk,
             addr_w <= 0;
             scroll_w <= 0;
           end
-          3'd3: if (~bus_wr)
-            oam_addr <= bus_din;
           3'd4: begin
             if (bus_wr)
               bus_out <= oam_out;
             else
-              oam_en <= 1;
+              oam_incr <= 1'b1;
           end
 
           3'd5: if (~bus_wr)
@@ -180,12 +190,16 @@ module ppu(input        ppu_clk,
     end // else: !if(reset)
   end
 
+  // Combination RAM Write signals (doing in FF causes pipeline effect)
   always_comb begin
     nmta_en = 0;
     nmtb_en = 0;
+    oam_en = 0;
 
     if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF) begin
       unique case (bus_addr[2:0])
+        3'd4: oam_en = ~bus_wr;
+
         3'd7: begin
           if (vram_addr >=16'h2000 && vram_addr <= 16'h3EFF) begin
             if (vram_addr[11:10] == 2'd0 ||
@@ -200,10 +214,12 @@ module ppu(input        ppu_clk,
         default: begin
           nmta_en = 0;
           nmtb_en = 0;
+          oam_en = 0;
         end
       endcase
     end
   end
+
 
   ////////////////////////////////////////////////////////////
   //               RENDERING LOGIC                          //
@@ -279,7 +295,8 @@ module ppu(input        ppu_clk,
     render_pattern_addr = '0;
     nt_data = '0;
 
-    if (drx>>1 <= 255) begin
+    // BG tile fetching - only happens during visible part of scanline
+    if (drx>>1 <= 255 || drx >= 768) begin
       unique case (drx[3:0])
         4'd0, 4'd1: begin
           nt_en = 1'b1;
@@ -310,6 +327,18 @@ module ppu(input        ppu_clk,
           altpat2_en = 1'b1;
           render_pattern_addr = {control[4], nt, 1'b1, ndry[2:0]};
         end
+
+        // can't be too safe after the memory fiasco
+        default: begin
+          nt_en = 0;
+          altpat1_en = 0;
+          altpat2_en = 0;
+          alt_attr_en = 0;
+
+          render_nmt_addr = '0;
+          render_pattern_addr = '0;
+          nt_data = '0;
+        end
       endcase
     end // if(drx>>1 <= 255)
   end
@@ -319,7 +348,7 @@ module ppu(input        ppu_clk,
   logic [7:0]             attr;
 
   // Registers
-  logic [0:7]            altpat1, altpat2;
+  logic [0:7]             altpat1, altpat2;
   logic [7:0]             nt, alt_attr;
 
   // Latching Registers
@@ -354,6 +383,10 @@ module ppu(input        ppu_clk,
     end
   end
 
+  //
+  // SPRITE RENDERING
+  //
+
   // color output
   wire [11:0] color;
   logic [7:0] my_color;
@@ -382,6 +415,9 @@ module ppu(input        ppu_clk,
     end
 
     else begin
+      // priority sprite rendering - maybe use a mux?
+      // could use some kind of for loop...
+      // this becomes an else block
       if (mask[3] && ((drx>>1)>8 || mask[1])) begin
         vga_r = color[11:8];
         vga_g = color[7:4];

@@ -95,8 +95,8 @@ module NES (
   // cycle tracking
   logic odd_or_even = 1'b1;
 
-  logic                    NMI;
-  T65 CPU (.Mode('0), .BCD_en('0), .Res_n(KEY[0]), .Enable(1'b1),
+  logic                    NMI, DMA;
+  T65 CPU (.Mode('0), .BCD_en('0), .Res_n(KEY[0]), .Enable(~DMA),
            .Clk(CLK_NES), .Rdy(1'b1), .IRQ_n(1'b1), .NMI_n(NMI), .R_W_n(W_R),
            .A(bus_addr), .DI(bus_data), .DO(CPU_DO), .Regs(internal_regs));
 
@@ -109,6 +109,7 @@ module NES (
   logic                    sysram_en;
   logic [7:0]              sysram_out, prgrom_out;
   logic [7:0]              PPU_BUS=0;
+  logic [15:0]              DMA_ADDR;
 
   system_ram SYSRAM (bus_addr[10:0], CLK_NESRAM, bus_data, sysram_en, sysram_out);
   prg_rom PRGROM (bus_addr[14:0], CLK_NESRAM, prgrom_out);
@@ -117,10 +118,10 @@ module NES (
              .bus_addr(bus_addr), .bus_din(bus_data), .bus_wr(W_R),
              .odd_or_even(odd_or_even), .reset(~KEY[0]), .bus_out(PPU_BUS),
              .mirror_cfg(MIRRORING), .VGA_HS, .VGA_VS, .VGA_R, .VGA_G, .VGA_B,
-             .nmi(NMI), .ram_clk(CLK_NESRAM));
+             .nmi(NMI), .ram_clk(CLK_NESRAM), .dma_hijack(DMA), .dma_addr(DMA_ADDR));
 
   databus BUS (.ADDR(bus_addr), .CPU_WR(W_R), .CPU_DO,
                .SYSRAM_Q(sysram_out), .PRGROM_Q(prgrom_out),
                .BUS_OUT(bus_data), .SYSRAM_EN(sysram_en),
-               .VIDEO_BUS(PPU_BUS));
+               .VIDEO_BUS(PPU_BUS), .DMA, .DMA_ADDR);
 endmodule // NES

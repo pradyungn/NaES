@@ -83,7 +83,7 @@ module ppu(input        ppu_clk,
 
   spr_ram OAM (.address_a((dma_hijack ? dma_oam_addr : oam_addr)), .clock_a(ram_clk), .data_a(bus_din),
                .wren_a(((oam_en && ~dma_hijack) || (dma_oam_en && dma_hijack))), .q_a(oam_out),
-               .address_b(fetch_addr), .clock_b(vga_clk), .wren_b(1'b0), .q_b(fetch_out));
+               .address_b(render_nmt_addr), .clock_b(vga_clk), .wren_b(1'b0), .q_b(fetch_out));
 
   always_ff @ (posedge cpu_clk) begin
     // Don't increment by default
@@ -308,7 +308,6 @@ module ppu(input        ppu_clk,
 
     // record in either nametable as offset from 0
     nt_addr = {ndry[7:3], ndrx};
-    // nt_addr = '0;
     attr_addr = 10'h3C0 + {ndry[7:5], ndrx[4:2]};
 
     nt_en = 0;
@@ -333,6 +332,10 @@ module ppu(input        ppu_clk,
         4'd0, 4'd1: begin
           nt_en = 1'b1;
           render_nmt_addr = nt_addr;
+
+          // Good for hex viewing
+          // render_nmt_addr = nt_addr>>1;
+          // nt_data = fetch_out[{nt_addr[0], 2'd0} +: 4];
 
           if(control[1:0]==2'b0 || control[1]^mirror_cfg)
             nt_data = render_nmta_data;
@@ -521,7 +524,6 @@ module ppu(input        ppu_clk,
 
   always_comb begin
     my_color = '0;
-    offset = drx - sprite_data[1];
 
     if (mask[0])
       color = vga[{pat2[drx[3:1]], pat1[drx[3:1]], 6'd0}];

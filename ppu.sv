@@ -17,7 +17,7 @@ module ppu(input        ppu_clk,
            input              reset,
 
            output             dma_hijack,
-           output      [15:0] dma_addr,
+           output [15:0]      dma_addr,
            output logic [7:0] bus_out,
 
            input              mirror_cfg,
@@ -50,7 +50,7 @@ module ppu(input        ppu_clk,
   // Vars for rendering
   logic [12:0] render_pattern_addr;
   logic [9:0]  render_nmt_addr;
-  logic [7:0] fetch_addr, fetch_out;
+  logic [7:0]  render_oam_addr, render_oam_out;
   logic [7:0]  render_pattern_data, render_nmta_data, render_nmtb_data;
 
   // write-enable/data signals for RAM i/o interface
@@ -59,7 +59,7 @@ module ppu(input        ppu_clk,
 
   // DMA submodule
   logic [7:0]  dma_oam_addr;
-  logic dma_oam_en;
+  logic        dma_oam_en;
 
   dma DIRMA (.clk(cpu_clk), .bus_addr, .bus_data(bus_din), .bus_wr,
              .hijack(dma_hijack), .out_bus_addr(dma_addr), .oam_addr(dma_oam_addr),
@@ -83,7 +83,7 @@ module ppu(input        ppu_clk,
 
   spr_ram OAM (.address_a((dma_hijack ? dma_oam_addr : oam_addr)), .clock_a(ram_clk), .data_a(bus_din),
                .wren_a(((oam_en && ~dma_hijack) || (dma_oam_en && dma_hijack))), .q_a(oam_out),
-               .address_b(render_nmt_addr), .clock_b(vga_clk), .wren_b(1'b0), .q_b(fetch_out));
+               .address_b(render_oam_addr), .clock_b(vga_clk), .wren_b(1'b0), .q_b(render_oam_out));
 
   always_ff @ (posedge cpu_clk) begin
     // Don't increment by default
@@ -267,33 +267,15 @@ module ppu(input        ppu_clk,
   logic [7:0]             ndry;
 
   //
-  // SPRITE FETCHING VARS
-  // (Backshifted for autocomplete stuff)
+  // Filling sprite_data
   //
 
-  // render/patternfetch information
-  logic spr_latch_en;
-  logic [3:0] fetch_ct;
-  byte        oam_fetched [31:0];
-  byte        sprite_data [31:0];
-  logic [3:0] sprite_ct;
+  logic [4:0]             backshift; // makes it easier to make our "32 cycle" logic
+  logic [2:0]             sprite_fetch_y;
 
-  // sprite 0 flag
-  logic       alt_s0, s0;
-
-  // translated coords
-  logic [4:0] backshift;
-  logic [2:0] yc, diff;
-
-  //
-  // END OF SPRITE FETCH VARS
-  //
-
-  // use always_comb to figure out memory stuff. use ff to latch data
-  // Kinda FSM, but you don't actually need state - the pixel counter is in of itself
-  // sufficient state.
+  // Memory fetching during rendering
   always_comb begin
-    // address computation
+    // address computation for current tile
     if (drx>>4 >= 31) begin
       ndrx = '0;
 
@@ -319,9 +301,9 @@ module ppu(input        ppu_clk,
     render_pattern_addr = '0;
     nt_data = '0;
 
-    backshift = '0;
-    yc = '0;
-    diff = '0;
+    // defaults for sprite fetch vars
+    sprite_fetch_y = '0;
+    backshift = drx - 522;
 
     // BG tile fetching - only happens during vision/trail of visible lines, and trail of pre-render line
     // TODO: Adapt to work w/ scrolling. Basically change the case statement & latching to work w scolling
@@ -333,14 +315,12 @@ module ppu(input        ppu_clk,
           nt_en = 1'b1;
           render_nmt_addr = nt_addr;
 
-          // Good for hex viewing
-          // render_nmt_addr = nt_addr>>1;
-          // nt_data = fetch_out[{nt_addr[0], 2'd0} +: 4];
+          nt_data = sprite_data[ndrx];
 
-          if(control[1:0]==2'b0 || control[1]^mirror_cfg)
-            nt_data = render_nmta_data;
-          else
-            nt_data = render_nmtb_data;
+          // if(control[1:0]==2'b0 || control[1]^mirror_cfg)
+          //   nt_data = render_nmta_data;
+          // else
+          //   nt_data = render_nmtb_data;
         end
 
         4'd2, 4'd3: begin
@@ -377,13 +357,20 @@ module ppu(input        ppu_clk,
       endcase
     end // if(drx>>1 <= 255)
 
-    else if ((dry<480) && (drx>=522 && drx<=553)) begin
-      backshift = drx-10'd522;
-      diff = ndry - 1 - oam_fetched[{backshift[4:2], 2'd0}];
-      yc = oam_fetched[{backshift[4:2], 2'd2}][7] ? 3'd7 - diff : diff;
+    else if (dry<480 && drx>=522 && drx<=553) begin
+      sprite_fetch_y = fetched_data[{backshift[4:2], 2'd2}][7] ?
+                       8'd7 - ((dry>>1) - fetched_data[{backshift[4:2], 2'd2}]) :
+                       (dry>>1) - fetched_data[{backshift[4:2], 2'd2}][7];
 
-      render_pattern_addr = {control[3], (oam_fetched[{backshift[4:2], 2'd1}]),
-                             backshift[1], yc};
+      case(backshift[1:0])
+        2'd0, 2'd1: render_pattern_addr = {control[3],
+                                           fetched_data[{backshift[4:2], 2'd1}],
+                                           1'b0, sprite_fetch_y};
+
+        2'd2, 2'd3: render_pattern_addr = {control[3],
+                                           fetched_data[{backshift[4:2], 2'd1}],
+                                           1'b1, sprite_fetch_y};
+      endcase // case (backshift[1:0])
     end
   end
 
@@ -409,12 +396,12 @@ module ppu(input        ppu_clk,
     end else begin
       // BG tile fetching - only happens during vision/trail of visible lines, and trail of pre-render line
       if ((((drx>>1 < 256 || drx>=768) && (dry>>1) < 240) || (drx >= 768 && dry==524))
-        && drx[3:0]=='1) begin
+          && drx[3:0]=='1) begin
 
-          pat1 <= altpat1;
-          pat2 <= altpat2;
-          attr <= alt_attr;
-        end
+        pat1 <= altpat1;
+        pat2 <= altpat2;
+        attr <= alt_attr;
+      end
 
       if (altpat1_en)
         altpat1 <= render_pattern_data;
@@ -437,82 +424,128 @@ module ppu(input        ppu_clk,
 
   // LINEAR SCAN
 
+  // main storage
+  byte sprite_data [31:0];
+  logic [3:0] sprite_ct; // 0-8
+  logic       s0;
+
+  // scan storage
+  byte        fetched_data [31:0];
+  logic [1:0] batch_ct;
+  logic [3:0] fetched_ct; // 0-8
+  logic       alt_s0;
+
+  // render_oam_addr/out higher up in file.
+  // use oam_addr as a form of state - set it when transitioning TO read
+
+  enum        logic [2:0]
+              {IDL, MAINRD, EVAL, LATCH, INCR_RD}
+              state, next;
+
+  logic [7:0] rel_addr;
+
+  assign rel_addr = dry>>1;
+
+  always_comb begin
+    case (state)
+      IDL: next = (drx==0) ? MAINRD : IDL;
+
+      MAINRD: next = (render_oam_addr < 253 && dry!=479) ? EVAL : IDL;
+
+      EVAL: begin
+        if (render_oam_out >= rel_addr && render_oam_out<=rel_addr+3'd7)
+          next = LATCH;
+        else
+          next = (render_oam_addr < 249) ? MAINRD : IDL;
+      end
+
+      LATCH: begin
+        if (batch_ct<3)
+          next = INCR_RD;
+        else
+          next = (fetched_ct==4'd8 || render_oam_addr>252) ? IDL : MAINRD;
+      end
+
+      INCR_RD: next = LATCH;
+
+      default: next = IDL;
+    endcase // case (state)
+  end
+
+  // used in iterators
+  integer i;
+  logic [2:0] fetchidx;
+
   always_ff @ (posedge vga_clk) begin
     if (reset) begin
-      spr_latch_en <= 1'b0;
-
-      fetch_ct <= '0;
+      batch_ct <= '0;
+      fetched_ct <= '0;
       sprite_ct <= '0;
-
-      for(int i=0; i<32; i++)
-        oam_fetched[i] <= '0;
-
-      for(int i=0; i<32; i++)
-        oam_fetched[i] <= '0;
 
       s0 <= 1'b0;
       alt_s0 <= 1'b0;
-    end else begin
-      if(drx==0) begin
-        for(int i=0; i<32; i++)
-          oam_fetched[i] <= '0;
 
-        fetch_ct <= 0;
-        fetch_addr <= oam_addr;
-        alt_s0 <= 0;
-      end
+      render_oam_addr <= '0;
 
-      if (drx<=511 && dry<480)
-        case (drx[2:0])
-          3'd0:
-            spr_latch_en <= 1'b0;
+      for(i=0; i<32; i++)
+        sprite_data[i] <= '0;
 
-          3'd1: begin
-            if(fetch_addr < 253)
-              fetch_addr <= fetch_addr + 1'd1;
+      for(i=0; i<32; i++)
+        fetched_data[i] <= '0;
+    end
 
-            if (fetch_out<=(dry>>1-~dry[0])
-                && fetch_out+8'd7>=(dry>>1 - ~dry[0])
-                && fetch_addr<253 && fetch_ct<8) begin
-              fetch_ct <= fetch_ct + 1'd1;
-              spr_latch_en <= 1;
-              oam_fetched[{fetch_ct, 2'd0}] <= fetch_out;
+    else if (dry<480 && drx<512) begin
+      state <= next;
 
-              if (fetch_addr=='0)
-                alt_s0 <= 1'b1;
-            end
+      case (state)
+        IDL: begin
+          if (next==MAINRD) begin
+            for(i=0; i<32; i++)
+              fetched_data[i] <= '0;
+
+            fetched_ct <= '0;
+            batch_ct <= '0;
+            render_oam_addr <= oam_addr;
+            alt_s0 <= 1'b0;
           end
-
-          3'd3, 3'd5, 3'd7: begin
-            if(fetch_addr < 255)
-              fetch_addr <= fetch_addr + 1'd1;
-
-            if (spr_latch_en)
-              oam_fetched[{fetch_ct-1'd1, drx[2:1]}] <= fetch_out;
-          end
-        endcase // case (drx[2:0])
-
-      else if (dry<480 && drx>=522 && drx<=553) begin
-        if(drx==522) begin
-          s0 <= alt_s0;
-          sprite_ct <= fetch_ct;
         end
 
-        case(backshift[1:0])
-          2'd0: begin
-            // direct copy of attribute & x position
-            sprite_data[{backshift[4:2], 2'd0}] <= oam_fetched[{backshift[4:2], 2'd2}];
-            sprite_data[{backshift[4:2], 2'd1}] <= oam_fetched[{backshift[4:2], 2'd3}];
+        EVAL: begin
+          if (next==LATCH) begin
+            batch_ct <= '0;
+            fetched_ct <= fetched_ct + 1'd1;
           end
 
-          2'd1, 2'd3: begin
-            if(backshift[4:2] < sprite_ct)
-              sprite_data[{backshift[4:2], 1'b0, backshift[1]}] <= render_pattern_data;
-            else
-              sprite_data[{backshift[4:2], 1'b0, backshift[1]}] <= '0;
-          end
-        endcase // case (backshift[1:0])
+          else if (next==MAINRD)
+            render_oam_addr <= render_oam_addr + 4;
+        end
+
+        LATCH: begin
+          render_oam_addr <= render_oam_addr + 1'd1;
+          fetched_data[(fetched_ct-1'd1)*4 + batch_ct] <= render_oam_out;
+          batch_ct <= batch_ct + 1'd1;
+
+          if(render_oam_addr=='0)
+            alt_s0 <= 1'b1;
+        end
+      endcase
+    end
+
+    else if (dry<480 && dry[0] && drx>=522 && drx<=553) begin
+      if(drx==522) begin
+        for(i=0; i<8; i++) begin
+          sprite_data[i*4] <= fetched_data[i*4 + 2];
+          sprite_data[i*4 + 1] <= fetched_data[i*4 + 3];
+        end
+
+        s0 <= alt_s0;
+        sprite_ct <= fetched_ct;
       end
+
+      case (backshift[1:0])
+        2'd1: sprite_data[{backshift[4:2], 2'd2}] <= (backshift[4:2] < sprite_ct) ? render_pattern_data : '0;
+        2'd3: sprite_data[{backshift[4:2], 2'd3}] <= (backshift[4:2] < sprite_ct) ? render_pattern_data : '0;
+      endcase // case (backshift[1:0])
     end
   end
 
@@ -525,11 +558,17 @@ module ppu(input        ppu_clk,
   always_comb begin
     my_color = '0;
 
-    if (mask[0])
-      color = vga[{pat2[drx[3:1]], pat1[drx[3:1]], 6'd0}];
+    if (mask[0]) begin
+      // color = vga[{pat2[drx[3:1]], pat1[drx[3:1]], 6'd0}];
+      color = vga[{sprite_data[3][drx[3:1]], sprite_data[2][drx[3:1]], 6'd0}];
+    end
+
     else begin
+      // my_color = palette[{2'b0, attr[{dry[5], drx[5], 1'b0} +: 2],
+      //                     pat2[drx[3:1]], pat1[drx[3:1]]}];
       my_color = palette[{2'b0, attr[{dry[5], drx[5], 1'b0} +: 2],
-                          pat2[drx[3:1]], pat1[drx[3:1]]}];
+                          sprite_data[3][drx[3:1]], sprite_data[2][drx[3:1]]}];
+
       color = vga[my_color];
     end
 

@@ -66,10 +66,10 @@ module ppu(input        ppu_clk,
              .oam_en(dma_oam_en));
 
   // ram declarations
-  chr_rom pattern (.address_a(vram_addr[12:0]), .clock_a(ram_clk),
-                   .wren_a(1'b0), .q_a(pattern_out),
-                   .address_b(render_pattern_addr), .clock_b(vga_clk),
-                   .wren_b(1'b0), .q_b(render_pattern_data));
+  chr_rom pattern_mem (.address_a(vram_addr[12:0]), .clock_a(ram_clk),
+                       .wren_a(1'b0), .q_a(pattern_out),
+                       .address_b(render_pattern_addr), .clock_b(vga_clk),
+                       .wren_b(1'b0), .q_b(render_pattern_data));
 
   nametable nmt_a (.address_a(vram_addr[9:0]), .clock_a(ram_clk),
                    .data_a(bus_din), .wren_a(nmta_en), .q_a(nmta_out),
@@ -120,8 +120,10 @@ module ppu(input        ppu_clk,
         status[7] <= 0;
       else if(dry[8:1]==9'd240 && drx[9:4]=='0)
         status[7] <= 1'b1;
-      else if (dry == 10'd520)
+      else if (dry == 10'd524)
         status[7] <= 1'b0;
+
+      status[6] <= sprite_hit;
 
       // case statement for isolated behaviors
       if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF) begin
@@ -315,12 +317,12 @@ module ppu(input        ppu_clk,
           nt_en = 1'b1;
           render_nmt_addr = nt_addr;
 
-          nt_data = sprite_data[ndrx];
+          // nt_data = sprite_data[ndrx];
 
-          // if(control[1:0]==2'b0 || control[1]^mirror_cfg)
-          //   nt_data = render_nmta_data;
-          // else
-          //   nt_data = render_nmtb_data;
+          if(control[1:0]==2'b0 || control[1]^mirror_cfg)
+            nt_data = render_nmta_data;
+          else
+            nt_data = render_nmtb_data;
         end
 
         4'd2, 4'd3: begin
@@ -359,8 +361,8 @@ module ppu(input        ppu_clk,
 
     else if (dry<480 && drx>=522 && drx<=553) begin
       sprite_fetch_y = fetched_data[{backshift[4:2], 2'd2}][7] ?
-                       8'd7 - ((dry>>1) - fetched_data[{backshift[4:2], 2'd2}]) :
-                       (dry>>1) - fetched_data[{backshift[4:2], 2'd2}][7];
+                       8'd7 - ((dry>>1) - fetched_data[{backshift[4:2], 2'd0}]) :
+                       (dry>>1) - fetched_data[{backshift[4:2], 2'd0}];
 
       case(backshift[1:0])
         2'd0, 2'd1: render_pattern_addr = {control[3],
@@ -453,7 +455,7 @@ module ppu(input        ppu_clk,
       MAINRD: next = (render_oam_addr < 253 && dry!=479) ? EVAL : IDL;
 
       EVAL: begin
-        if (render_oam_out >= rel_addr && render_oam_out<=rel_addr+3'd7)
+        if (render_oam_out <= rel_addr && render_oam_out+3'd7>=rel_addr)
           next = LATCH;
         else
           next = (render_oam_addr < 249) ? MAINRD : IDL;
@@ -550,26 +552,71 @@ module ppu(input        ppu_clk,
   end
 
   // color output
-  wire [11:0] color;
+  wire [11:0] bgcolor;
   logic [7:0] my_color;
+  logic [1:0] bg_px;
+  logic       bg_en;
 
+  // sprite rendering logic
+  logic [1:0] pattern [7:0];
+  logic [7:0] valid, palette_color;
+  logic [2:0] diff;
+  integer     iter;
+
+  // "hit condition" of sprite hit flag
+  logic       hit0, sprite_hit;
+
+  // unsynchronized outputs
   logic [3:0] vga_r, vga_g, vga_b;
 
   always_comb begin
+    // defaults
     my_color = '0;
+    palette_color = '0;
+    valid = '0;
+    diff = '0;
+
+    bg_en = mask[3] && ((drx>>1)>8 || mask[1]);
+    bg_px = {pat2[drx[3:1]], pat1[drx[3:1]]};
+
+    // generating pattern and validity for each sprite
+    for(iter=0; iter<8; iter++) begin
+      if((iter<sprite_ct) && (mask[4]) && (mask[2] || (drx>>1)>8) &&
+         (drx>>1) >= sprite_data[(iter*4)+1] &&
+         (drx>>1) <= sprite_data[(iter*4)+1] + 7) begin
+
+        diff = (drx>>1) - sprite_data[(iter*4)+1];
+
+        if(sprite_data[iter*4][6])
+          pattern[iter] = {sprite_data[(iter*4)+3][diff],
+                           sprite_data[(iter*4)+2][diff]};
+        else
+          pattern[iter] = {sprite_data[(iter*4)+3][3'd7-diff],
+                           sprite_data[(iter*4)+2][3'd7-diff]};
+
+        valid[iter] = |(pattern[iter]);
+      end
+
+      else begin
+        pattern[iter] = '0;
+        valid[iter] = 1'b0;
+      end
+    end
+
+    // "hardcode" hit condition
+    hit0 = bg_en && (|bg_px) && valid[0];
 
     if (mask[0]) begin
-      // color = vga[{pat2[drx[3:1]], pat1[drx[3:1]], 6'd0}];
-      color = vga[{sprite_data[3][drx[3:1]], sprite_data[2][drx[3:1]], 6'd0}];
+      bgcolor = vga[{bg_px, 6'd0}];
+      // color = vga[{sprite_data[3][drx[3:1]], sprite_data[2][drx[3:1]], 6'd0}];
     end
 
     else begin
+      my_color = palette[{1'b0, attr[{dry[5], drx[5], 1'b0} +: 2], bg_px}];
       // my_color = palette[{2'b0, attr[{dry[5], drx[5], 1'b0} +: 2],
-      //                     pat2[drx[3:1]], pat1[drx[3:1]]}];
-      my_color = palette[{2'b0, attr[{dry[5], drx[5], 1'b0} +: 2],
-                          sprite_data[3][drx[3:1]], sprite_data[2][drx[3:1]]}];
+      //                     sprite_data[3][drx[3:1]], sprite_data[2][drx[3:1]]}];
 
-      color = vga[my_color];
+      bgcolor = vga[my_color];
     end
 
     vga_r = '0;
@@ -583,10 +630,23 @@ module ppu(input        ppu_clk,
     end
 
     else begin
-      if (mask[3] && ((drx>>1)>8 || mask[1])) begin
-        vga_r = color[11:8];
-        vga_g = color[7:4];
-        vga_b = color[3:0];
+      if (|valid) begin
+        for(iter=0; iter<8; iter++) begin
+          if(valid[iter]) begin
+            palette_color = palette[{1'b1, sprite_data[iter*4][1:0], pattern[iter]}];
+            vga_r = vga[palette_color][11:8];
+            vga_g = vga[palette_color][7:4];
+            vga_b = vga[palette_color][3:0];
+
+            break;
+          end
+        end
+      end
+
+      else if (bg_en) begin
+        vga_r = bgcolor[11:8];
+        vga_g = bgcolor[7:4];
+        vga_b = bgcolor[3:0];
       end
     end
   end
@@ -595,6 +655,12 @@ module ppu(input        ppu_clk,
     VGA_R <= vga_r;
     VGA_B <= vga_b;
     VGA_G <= vga_g;
+
+
+    if (reset || dry==10'd524)
+      sprite_hit <= 1'b0;
+    else
+      sprite_hit <= (sprite_hit) || (hit0 && s0);
   end
 
 endmodule

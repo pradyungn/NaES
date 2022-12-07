@@ -27,13 +27,14 @@ module nios (
 	usb_gpx_export,
 	usb_irq_export,
 	usb_rst_export,
-	vga_clk);	
+	vga_clk,
+	keycode2_export);	
 
 	input		clk_clk;
 	output		cpu_clk;
 	output	[23:0]	hex_wire_export;
 	input	[1:0]	key_wire_export;
-	output	[31:0]	keycode_export;
+	output	[7:0]	keycode_export;
 	output	[9:0]	led_wire_export;
 	output		nes_clk;
 	output		ppu_clk;
@@ -57,4 +58,5 @@ module nios (
 	input		usb_irq_export;
 	output		usb_rst_export;
 	output		vga_clk;
+	output	[7:0]	keycode2_export;
 endmodule

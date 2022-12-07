@@ -26,6 +26,7 @@
 		.usb_gpx_export   (<connected-to-usb_gpx_export>),   //    usb_gpx.export
 		.usb_irq_export   (<connected-to-usb_irq_export>),   //    usb_irq.export
 		.usb_rst_export   (<connected-to-usb_rst_export>),   //    usb_rst.export
-		.vga_clk          (<connected-to-vga_clk>)           //        vga.clk
+		.vga_clk          (<connected-to-vga_clk>),          //        vga.clk
+		.keycode2_export  (<connected-to-keycode2_export>)   //   keycode2.export
 	);
 

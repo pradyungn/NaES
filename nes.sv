@@ -50,7 +50,7 @@ module NES (
 
   logic                    SPI0_CS_N, SPI0_SCLK, SPI0_MISO, SPI0_MOSI, USB_GPX, USB_IRQ, USB_RST;
   logic [23:0]             nios_hex;
-  logic [31:0]             nios_keycode;
+  logic [7:0]             nios_keycode, keycode2;
 
   //=======================================================
   //  Structural coding
@@ -81,7 +81,8 @@ module NES (
                 .sdram_wire_we_n(DRAM_WE_N), .spi0_SS_n(SPI0_CS_N), .spi0_MOSI(SPI0_MOSI),
                 .spi0_MISO(SPI0_MISO), .spi0_SCLK(SPI0_SCLK), .sw_wire_export(SW),
                 .usb_gpx_export(USB_GPX), .usb_irq_export(USB_IRQ), .usb_rst_export(USB_RST),
-                .vga_clk(CLK_VGA), .sdram_wire_dqm({DRAM_UDQM, DRAM_LDQM}));
+                .vga_clk(CLK_VGA), .sdram_wire_dqm({DRAM_UDQM, DRAM_LDQM}),
+                .keycode2_export(keycode2));
 
   // 0 for horiz
   localparam logic         MIRRORING = 1'b0;
@@ -106,10 +107,17 @@ module NES (
   HexDriver PCC (internal_regs[55 -: 4], HEX1);
   HexDriver PCD (internal_regs[51 -: 4], HEX0);
 
-  logic                    sysram_en;
-  logic [7:0]              sysram_out, prgrom_out;
+  HexDriver PCE (c1_c[7 -: 4], HEX5);
+  HexDriver PCF (c1_c[3 -: 4], HEX4);
+
+  logic                    sysram_en, c1_en;
+  logic [7:0]              sysram_out, prgrom_out, c1_o, c1_c;
   logic [7:0]              PPU_BUS=0;
   logic [15:0]              DMA_ADDR, INT_ADDR;
+
+  KBcontroller control1 (.clk(CLK_NESRAM), .WR(W_R), .ENABLE(c1_en),
+                         .keycode(nios_keycode), .keycode2, .bus(bus_data),
+                         .DATA(c1_o), .COMP(c1_c));
 
   system_ram SYSRAM (INT_ADDR[10:0], CLK_NESRAM, bus_data, sysram_en, sysram_out);
   prg_rom PRGROM (INT_ADDR[14:0], CLK_NESRAM, prgrom_out);
@@ -123,5 +131,6 @@ module NES (
   databus BUS (.ADDR(bus_addr), .CPU_WR(W_R), .CPU_DO,
                .SYSRAM_Q(sysram_out), .PRGROM_Q(prgrom_out),
                .BUS_OUT(bus_data), .SYSRAM_EN(sysram_en),
-               .VIDEO_BUS(PPU_BUS), .DMA, .DMA_ADDR, .INT_ADDR);
+               .VIDEO_BUS(PPU_BUS), .DMA, .DMA_ADDR, .INT_ADDR,
+               .CONTROL1(c1_o), .CONTROL1_EN(c1_en));
 endmodule // NES

@@ -1133,7 +1133,7 @@
     </registers>
    </peripheral>
   <peripheral>
-      <name>nios_hex_pio_s1_altera_avalon_pio</name><baseAddress>0x00000000</baseAddress> 
+      <name>nios_hex_digits_pio_s1_altera_avalon_pio</name><baseAddress>0x00000000</baseAddress> 
       <addressBlock>
         <offset>0x0</offset>
         <size>32</size>

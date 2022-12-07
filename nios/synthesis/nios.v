@@ -8,7 +8,7 @@ module nios (
 		output wire        cpu_clk,          //        cpu.clk
 		output wire [23:0] hex_wire_export,  //   hex_wire.export
 		input  wire [1:0]  key_wire_export,  //   key_wire.export
-		output wire [31:0] keycode_export,   //    keycode.export
+		output wire [7:0]  keycode_export,   //    keycode.export
 		output wire [9:0]  led_wire_export,  //   led_wire.export
 		output wire        nes_clk,          //        nes.clk
 		output wire        ppu_clk,          //        ppu.clk
@@ -118,11 +118,11 @@ module nios (
 	wire   [3:0] mm_interconnect_0_timer_0_s1_address;                        // mm_interconnect_0:timer_0_s1_address -> timer_0:address
 	wire         mm_interconnect_0_timer_0_s1_write;                          // mm_interconnect_0:timer_0_s1_write -> timer_0:write_n
 	wire  [15:0] mm_interconnect_0_timer_0_s1_writedata;                      // mm_interconnect_0:timer_0_s1_writedata -> timer_0:writedata
-	wire         mm_interconnect_0_hex_pio_s1_chipselect;                     // mm_interconnect_0:hex_pio_s1_chipselect -> hex_pio:chipselect
-	wire  [31:0] mm_interconnect_0_hex_pio_s1_readdata;                       // hex_pio:readdata -> mm_interconnect_0:hex_pio_s1_readdata
-	wire   [1:0] mm_interconnect_0_hex_pio_s1_address;                        // mm_interconnect_0:hex_pio_s1_address -> hex_pio:address
-	wire         mm_interconnect_0_hex_pio_s1_write;                          // mm_interconnect_0:hex_pio_s1_write -> hex_pio:write_n
-	wire  [31:0] mm_interconnect_0_hex_pio_s1_writedata;                      // mm_interconnect_0:hex_pio_s1_writedata -> hex_pio:writedata
+	wire         mm_interconnect_0_hex_digits_pio_s1_chipselect;              // mm_interconnect_0:hex_digits_pio_s1_chipselect -> hex_digits_pio:chipselect
+	wire  [31:0] mm_interconnect_0_hex_digits_pio_s1_readdata;                // hex_digits_pio:readdata -> mm_interconnect_0:hex_digits_pio_s1_readdata
+	wire   [1:0] mm_interconnect_0_hex_digits_pio_s1_address;                 // mm_interconnect_0:hex_digits_pio_s1_address -> hex_digits_pio:address
+	wire         mm_interconnect_0_hex_digits_pio_s1_write;                   // mm_interconnect_0:hex_digits_pio_s1_write -> hex_digits_pio:write_n
+	wire  [31:0] mm_interconnect_0_hex_digits_pio_s1_writedata;               // mm_interconnect_0:hex_digits_pio_s1_writedata -> hex_digits_pio:writedata
 	wire         mm_interconnect_0_spi_0_spi_control_port_chipselect;         // mm_interconnect_0:spi_0_spi_control_port_chipselect -> spi_0:spi_select
 	wire  [15:0] mm_interconnect_0_spi_0_spi_control_port_readdata;           // spi_0:data_to_cpu -> mm_interconnect_0:spi_0_spi_control_port_readdata
 	wire   [2:0] mm_interconnect_0_spi_0_spi_control_port_address;            // mm_interconnect_0:spi_0_spi_control_port_address -> spi_0:mem_addr
@@ -133,7 +133,7 @@ module nios (
 	wire         irq_mapper_receiver1_irq;                                    // spi_0:irq -> irq_mapper:receiver1_irq
 	wire         irq_mapper_receiver2_irq;                                    // timer_0:irq -> irq_mapper:receiver2_irq
 	wire  [31:0] nios2_gen2_0_irq_irq;                                        // irq_mapper:sender_irq -> nios2_gen2_0:irq
-	wire         rst_controller_reset_out_reset;                              // rst_controller:reset_out -> [ext_pll:reset, hex_pio:reset_n, irq_mapper:reset, jtag_uart_0:rst_n, key:reset_n, keycode:reset_n, leds_pio:reset_n, mm_interconnect_0:nios2_gen2_0_reset_reset_bridge_in_reset_reset, nios2_gen2_0:reset_n, onchip_memory2_0:reset, rst_translator:in_reset, sdram_pll:reset, spi_0:reset_n, sw:reset_n, sysid_qsys_0:reset_n, timer_0:reset_n, usb_gpx:reset_n, usb_irq:reset_n, usb_rst:reset_n]
+	wire         rst_controller_reset_out_reset;                              // rst_controller:reset_out -> [ext_pll:reset, hex_digits_pio:reset_n, irq_mapper:reset, jtag_uart_0:rst_n, key:reset_n, keycode:reset_n, leds_pio:reset_n, mm_interconnect_0:nios2_gen2_0_reset_reset_bridge_in_reset_reset, nios2_gen2_0:reset_n, onchip_memory2_0:reset, rst_translator:in_reset, sdram_pll:reset, spi_0:reset_n, sw:reset_n, sysid_qsys_0:reset_n, timer_0:reset_n, usb_gpx:reset_n, usb_irq:reset_n, usb_rst:reset_n]
 	wire         rst_controller_reset_out_reset_req;                          // rst_controller:reset_req -> [nios2_gen2_0:reset_req, onchip_memory2_0:reset_req, rst_translator:reset_req_in]
 	wire         nios2_gen2_0_debug_reset_request_reset;                      // nios2_gen2_0:debug_reset_request -> [rst_controller:reset_in1, rst_controller_001:reset_in1]
 	wire         rst_controller_001_reset_out_reset;                          // rst_controller_001:reset_out -> [mm_interconnect_0:sdram_reset_reset_bridge_in_reset_reset, sdram:reset_n]
@@ -165,15 +165,15 @@ module nios (
 		.configupdate       (1'b0)                                           //           (terminated)
 	);
 
-	nios_hex_pio hex_pio (
-		.clk        (clk_clk),                                 //                 clk.clk
-		.reset_n    (~rst_controller_reset_out_reset),         //               reset.reset_n
-		.address    (mm_interconnect_0_hex_pio_s1_address),    //                  s1.address
-		.write_n    (~mm_interconnect_0_hex_pio_s1_write),     //                    .write_n
-		.writedata  (mm_interconnect_0_hex_pio_s1_writedata),  //                    .writedata
-		.chipselect (mm_interconnect_0_hex_pio_s1_chipselect), //                    .chipselect
-		.readdata   (mm_interconnect_0_hex_pio_s1_readdata),   //                    .readdata
-		.out_port   (hex_wire_export)                          // external_connection.export
+	nios_hex_digits_pio hex_digits_pio (
+		.clk        (clk_clk),                                        //                 clk.clk
+		.reset_n    (~rst_controller_reset_out_reset),                //               reset.reset_n
+		.address    (mm_interconnect_0_hex_digits_pio_s1_address),    //                  s1.address
+		.write_n    (~mm_interconnect_0_hex_digits_pio_s1_write),     //                    .write_n
+		.writedata  (mm_interconnect_0_hex_digits_pio_s1_writedata),  //                    .writedata
+		.chipselect (mm_interconnect_0_hex_digits_pio_s1_chipselect), //                    .chipselect
+		.readdata   (mm_interconnect_0_hex_digits_pio_s1_readdata),   //                    .readdata
+		.out_port   (hex_wire_export)                                 // external_connection.export
 	);
 
 	nios_jtag_uart_0 jtag_uart_0 (
@@ -403,11 +403,11 @@ module nios (
 		.ext_pll_pll_slave_read                         (mm_interconnect_0_ext_pll_pll_slave_read),                    //                                         .read
 		.ext_pll_pll_slave_readdata                     (mm_interconnect_0_ext_pll_pll_slave_readdata),                //                                         .readdata
 		.ext_pll_pll_slave_writedata                    (mm_interconnect_0_ext_pll_pll_slave_writedata),               //                                         .writedata
-		.hex_pio_s1_address                             (mm_interconnect_0_hex_pio_s1_address),                        //                               hex_pio_s1.address
-		.hex_pio_s1_write                               (mm_interconnect_0_hex_pio_s1_write),                          //                                         .write
-		.hex_pio_s1_readdata                            (mm_interconnect_0_hex_pio_s1_readdata),                       //                                         .readdata
-		.hex_pio_s1_writedata                           (mm_interconnect_0_hex_pio_s1_writedata),                      //                                         .writedata
-		.hex_pio_s1_chipselect                          (mm_interconnect_0_hex_pio_s1_chipselect),                     //                                         .chipselect
+		.hex_digits_pio_s1_address                      (mm_interconnect_0_hex_digits_pio_s1_address),                 //                        hex_digits_pio_s1.address
+		.hex_digits_pio_s1_write                        (mm_interconnect_0_hex_digits_pio_s1_write),                   //                                         .write
+		.hex_digits_pio_s1_readdata                     (mm_interconnect_0_hex_digits_pio_s1_readdata),                //                                         .readdata
+		.hex_digits_pio_s1_writedata                    (mm_interconnect_0_hex_digits_pio_s1_writedata),               //                                         .writedata
+		.hex_digits_pio_s1_chipselect                   (mm_interconnect_0_hex_digits_pio_s1_chipselect),              //                                         .chipselect
 		.jtag_uart_0_avalon_jtag_slave_address          (mm_interconnect_0_jtag_uart_0_avalon_jtag_slave_address),     //            jtag_uart_0_avalon_jtag_slave.address
 		.jtag_uart_0_avalon_jtag_slave_write            (mm_interconnect_0_jtag_uart_0_avalon_jtag_slave_write),       //                                         .write
 		.jtag_uart_0_avalon_jtag_slave_read             (mm_interconnect_0_jtag_uart_0_avalon_jtag_slave_read),        //                                         .read

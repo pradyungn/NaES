@@ -560,6 +560,8 @@ module ppu(input        ppu_clk,
   // sprite rendering logic
   logic [1:0] pattern [7:0];
   logic [7:0] valid, palette_color;
+  logic [4:0] palette_idx;
+
   logic [2:0] diff;
   integer     iter;
 
@@ -573,6 +575,8 @@ module ppu(input        ppu_clk,
     // defaults
     my_color = '0;
     palette_color = '0;
+    palette_idx = '0;
+
     valid = '0;
     diff = '0;
 
@@ -633,10 +637,22 @@ module ppu(input        ppu_clk,
       if (|valid) begin
         for(iter=0; iter<8; iter++) begin
           if(valid[iter]) begin
-            palette_color = palette[{1'b1, sprite_data[iter*4][1:0], pattern[iter]}];
-            vga_r = vga[palette_color][11:8];
-            vga_g = vga[palette_color][7:4];
-            vga_b = vga[palette_color][3:0];
+            if (sprite_data[iter*4][5] && bg_en) begin
+              vga_r = bgcolor[11:8];
+              vga_g = bgcolor[7:4];
+              vga_b = bgcolor[3:0];
+            end else begin
+              palette_idx = {1'b1, sprite_data[iter*4][1:0], pattern[iter]};
+
+              if (palette_idx==5'h10 || palette_idx==5'h14 || palette_idx==5'h18 || palette_idx==5'h1C)
+                palette_color = palette[{1'b0, palette_idx[3:0]}];
+              else
+                palette_color = palette[palette_idx];
+
+              vga_r = vga[palette_color][11:8];
+              vga_g = vga[palette_color][7:4];
+              vga_b = vga[palette_color][3:0];
+            end
 
             break;
           end

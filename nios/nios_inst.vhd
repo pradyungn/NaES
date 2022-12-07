@@ -4,7 +4,7 @@
 			cpu_clk          : out   std_logic;                                        -- clk
 			hex_wire_export  : out   std_logic_vector(23 downto 0);                    -- export
 			key_wire_export  : in    std_logic_vector(1 downto 0)  := (others => 'X'); -- export
-			keycode_export   : out   std_logic_vector(31 downto 0);                    -- export
+			keycode_export   : out   std_logic_vector(7 downto 0);                     -- export
 			led_wire_export  : out   std_logic_vector(9 downto 0);                     -- export
 			nes_clk          : out   std_logic;                                        -- clk
 			ppu_clk          : out   std_logic;                                        -- clk
@@ -27,7 +27,8 @@
 			usb_gpx_export   : in    std_logic                     := 'X';             -- export
 			usb_irq_export   : in    std_logic                     := 'X';             -- export
 			usb_rst_export   : out   std_logic;                                        -- export
-			vga_clk          : out   std_logic                                         -- clk
+			vga_clk          : out   std_logic;                                        -- clk
+			keycode2_export  : out   std_logic_vector(7 downto 0)                      -- export
 		);
 	end component nios;
 
@@ -60,6 +61,7 @@
 			usb_gpx_export   => CONNECTED_TO_usb_gpx_export,   --    usb_gpx.export
 			usb_irq_export   => CONNECTED_TO_usb_irq_export,   --    usb_irq.export
 			usb_rst_export   => CONNECTED_TO_usb_rst_export,   --    usb_rst.export
-			vga_clk          => CONNECTED_TO_vga_clk           --        vga.clk
+			vga_clk          => CONNECTED_TO_vga_clk,          --        vga.clk
+			keycode2_export  => CONNECTED_TO_keycode2_export   --   keycode2.export
 		);
 

@@ -575,8 +575,8 @@ module ppu(input        ppu_clk,
     my_color = '0;
     palette_color = '0;
 
-    bg_en = mask[3] && ((drx>>1)>8 || mask[1]);
     bg_px = {pat2[drx[3:1]], pat1[drx[3:1]]};
+    bg_en = mask[3] && ((drx>>1)>8 || mask[1]) && (|bg_px);
 
     // generating pattern and validity for each sprite
     sprite_pattern = '0;
@@ -605,7 +605,10 @@ module ppu(input        ppu_clk,
           valid_sprite = |(sprite_pattern);
 
           if(valid_sprite) begin
-            palette_color = palette[{1'b1, sprite_data[iter*4][1:0], sprite_pattern}];
+            if (mask[0])
+              palette_color = {sprite_pattern, 6'd0};
+            else
+              palette_color = palette[{1'b1, sprite_data[iter*4][1:0], sprite_pattern}];
             spr_priority = sprite_data[iter*4][5];
             wasit0 = (iter=='0);
             break;
@@ -615,18 +618,14 @@ module ppu(input        ppu_clk,
     end // if ((mask[4]) && (mask[2] || (drx>>1)>8))
 
     // "hardcode" hit condition
-    hit0 = bg_en && (|bg_px) && wasit0;
+    hit0 = bg_en && wasit0;
 
     if (mask[0]) begin
       bgcolor = vga[{bg_px, 6'd0}];
-      // color = vga[{sprite_data[3][drx[3:1]], sprite_data[2][drx[3:1]], 6'd0}];
     end
 
     else begin
       my_color = palette[{1'b0, attr[{dry[5], drx[5], 1'b0} +: 2], bg_px}];
-      // my_color = palette[{2'b0, attr[{dry[5], drx[5], 1'b0} +: 2],
-      //                     sprite_data[3][drx[3:1]], sprite_data[2][drx[3:1]]}];
-
       bgcolor = vga[my_color];
     end
 
@@ -645,14 +644,24 @@ module ppu(input        ppu_clk,
         vga_r = vga[palette[0]][11:8];
         vga_g = vga[palette[0]][7:4];
         vga_b = vga[palette[0]][3:0];
-      end else if (bg_en && (~valid_sprite || spr_priority)) begin
+      end else if (bg_en && ~valid_sprite) begin
         vga_r = bgcolor[11:8];
         vga_g = bgcolor[7:4];
         vga_b = bgcolor[3:0];
-      end else begin
+      end else if (~bg_en && valid_sprite) begin
         vga_r = vga[palette_color][11:8];
         vga_g = vga[palette_color][7:4];
         vga_b = vga[palette_color][3:0];
+      end else if (bg_en && valid_sprite) begin
+        if(spr_priority) begin
+          vga_r = bgcolor[11:8];
+          vga_g = bgcolor[7:4];
+          vga_b = bgcolor[3:0];
+        end else begin
+          vga_r = vga[palette_color][11:8];
+          vga_g = vga[palette_color][7:4];
+          vga_b = vga[palette_color][3:0];
+        end
       end
     end
   end

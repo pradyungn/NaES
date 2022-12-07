@@ -2,8 +2,8 @@
 <sch:Settings xmlns:sch="http://www.altera.com/embeddedsw/bsp/schema">
         <BspType>hal</BspType>
         <BspVersion>default</BspVersion>
-        <BspGeneratedTimeStamp>Dec 6, 2022 3:53:13 PM</BspGeneratedTimeStamp>
-        <BspGeneratedUnixTimeStamp>1670363593532</BspGeneratedUnixTimeStamp>
+        <BspGeneratedTimeStamp>Dec 6, 2022 8:39:07 PM</BspGeneratedTimeStamp>
+        <BspGeneratedUnixTimeStamp>1670380747938</BspGeneratedUnixTimeStamp>
         <BspGeneratedLocation>/home/pradyungn/Documents/ECE385/NES_clone/software/usb_kb_bsp</BspGeneratedLocation>
         <BspSettingsFile>settings.bsp</BspSettingsFile>
         <SopcDesignFile>../../nios.sopcinfo</SopcDesignFile>

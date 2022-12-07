@@ -174,7 +174,7 @@ module ppu(input        ppu_clk,
                 bus_out <= pattern_out;
             end else if (vram_addr >= 16'h2000 && vram_addr <= 16'h3EFF) begin
               if (vram_addr[11:10] == 2'd0 ||
-                  (vram_addr[11:10]>=2'd1 && ~mirror_cfg) ||
+                  (vram_addr[11:10]==2'd1 && ~mirror_cfg) ||
                   (vram_addr[11:10]==4'h2 && mirror_cfg)) begin
                 bus_out <= nmta_out;
               end else begin
@@ -207,7 +207,7 @@ module ppu(input        ppu_clk,
         3'd7: begin
           if (vram_addr >=16'h2000 && vram_addr <= 16'h3EFF) begin
             if (vram_addr[11:10] == 2'd0 ||
-                (vram_addr[11:10]>=2'd1 && ~mirror_cfg) ||
+                (vram_addr[11:10]==2'd1 && ~mirror_cfg) ||
                 (vram_addr[11:10]==4'h2 && mirror_cfg))
               nmta_en = ~bus_wr;
             else
@@ -260,6 +260,7 @@ module ppu(input        ppu_clk,
 
   // intermediary to convert nametable/attribute address to nmta vs nmtb
   logic [9:0]             nt_addr, attr_addr;
+  logic [1:0]             actual_nt;
 
   logic                   nt_en, altpat1_en, altpat2_en, alt_attr_en;
   logic [7:0]             nt_data;
@@ -267,6 +268,9 @@ module ppu(input        ppu_clk,
   // next tile coords
   logic [4:0]             ndrx;
   logic [7:0]             ndry;
+
+  logic [8:0]             transl_coord;
+  logic                   ovr_x, ovr_y;
 
   //
   // Filling sprite_data
@@ -279,19 +283,23 @@ module ppu(input        ppu_clk,
   always_comb begin
     // address computation for current tile
     if (drx>>4 >= 31) begin
-      ndrx = '0;
+      ovr_x = 1'b0;
+      ndrx = scroll[15:11];
 
-      if (dry >= 479)
-        ndry = '0;
+      if (dry >= 479) begin
+        ovr_y = 1'b0;
+        ndry = scroll[7:0];
+      end
       else
-        ndry = (dry + 10'd1)>>1;
+        {ovr_y, ndry} = (dry + (scroll[7:0]*2) + 10'd1)>>1;
     end else begin
-      ndrx = drx[8:4] + 5'd1;
-      ndry = dry[8:1];
+      {ovr_x, ndrx} = (drx + (scroll[15:8]*2))>>4 + 5'd1;
+      {ovr_y, ndry} = (dry + (scroll[7:0]*2))>>1;
     end // else: !if(drx >= 496)
 
     // record in either nametable as offset from 0
     nt_addr = {ndry[7:3], ndrx};
+    actual_nt = {control[1]^ovr_y, control[0]^ovr_x};
     attr_addr = 10'h3C0 + {ndry[7:5], ndrx[4:2]};
 
     nt_en = 0;
@@ -303,6 +311,8 @@ module ppu(input        ppu_clk,
     render_pattern_addr = '0;
     nt_data = '0;
 
+    transl_coord = '0;
+
     // defaults for sprite fetch vars
     sprite_fetch_y = '0;
     backshift = drx - 522;
@@ -312,14 +322,19 @@ module ppu(input        ppu_clk,
     // need to change indexing statements slightly as well
 
     if (((drx>>1 < 256 || drx >= 768) && (dry>>1) < 240) || (drx >= 768 && dry==524)) begin
-      unique case (drx[3:0])
+      if (drx>>1 < 256)
+        transl_coord = drx + scroll[15:8]*2;
+      else
+        transl_coord = drx - 768 + scroll[15:8];
+
+      unique case (transl_coord[3:0])
         4'd0, 4'd1: begin
           nt_en = 1'b1;
           render_nmt_addr = nt_addr;
 
           // nt_data = sprite_data[ndrx];
 
-          if(control[1:0]==2'b0 || control[1]^mirror_cfg)
+          if(actual_nt==2'b0 || actual_nt[1]^mirror_cfg)
             nt_data = render_nmta_data;
           else
             nt_data = render_nmtb_data;
@@ -329,7 +344,7 @@ module ppu(input        ppu_clk,
           alt_attr_en = 1'b1;
           render_nmt_addr = attr_addr;
 
-          if(control[1:0]==2'b0 || control[1]^mirror_cfg)
+          if(actual_nt==2'b0 || actual_nt[1]^mirror_cfg)
             nt_data = render_nmta_data;
           else
             nt_data = render_nmtb_data;
@@ -398,7 +413,7 @@ module ppu(input        ppu_clk,
     end else begin
       // BG tile fetching - only happens during vision/trail of visible lines, and trail of pre-render line
       if ((((drx>>1 < 256 || drx>=768) && (dry>>1) < 240) || (drx >= 768 && dry==524))
-          && drx[3:0]=='1) begin
+          && transl_coord[3:0]=='1) begin
 
         pat1 <= altpat1;
         pat2 <= altpat2;
@@ -575,7 +590,7 @@ module ppu(input        ppu_clk,
     my_color = '0;
     palette_color = '0;
 
-    bg_px = {pat2[drx[3:1]], pat1[drx[3:1]]};
+    bg_px = {pat2[transl_coord[3:1]], pat1[transl_coord[3:1]]};
     bg_en = mask[3] && ((drx>>1)>8 || mask[1]) && (|bg_px);
 
     // generating pattern and validity for each sprite
@@ -625,7 +640,7 @@ module ppu(input        ppu_clk,
     end
 
     else begin
-      my_color = palette[{1'b0, attr[{dry[5], drx[5], 1'b0} +: 2], bg_px}];
+      my_color = palette[{1'b0, attr[{transl_coord[5], transl_coord[5], 1'b0} +: 2], bg_px}];
       bgcolor = vga[my_color];
     end
 

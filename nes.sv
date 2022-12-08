@@ -85,7 +85,7 @@ module NES (
                 .keycode2_export(keycode2));
 
   // 0 for horiz
-  localparam logic         MIRRORING = 1'b0;
+  localparam logic         MIRRORING = 1'b1;
 
   // CPU inst
   logic                    W_R;

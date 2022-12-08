@@ -39,6 +39,7 @@ module ppu(input        ppu_clk,
   logic [7:0]                 palette [31:0];
   logic [4:0]                 palette_addr;
 
+  // TESTING
   // mirrored indices for palette RAM
   always_comb begin
     if(vram_addr[4:0]==5'h10 || vram_addr[4:0]==5'h14 || vram_addr[4:0]==5'h18 || vram_addr[4:0]==5'h1C)
@@ -111,6 +112,7 @@ module ppu(input        ppu_clk,
       scroll_w <= 0;
 
       bus_out <= 0;
+
     end else begin
       // separate event control for VBL flag - we need explicit
       // event control. This backshifts priority handling
@@ -118,7 +120,7 @@ module ppu(input        ppu_clk,
       // issue. This could be why I'm dropping frames here and there.
       if (bus_addr >= 16'h2000 && bus_addr <= 16'h3FFF && bus_addr[2:0]==3'd2 && bus_wr)
         status[7] <= 0;
-      else if(dry[8:1]==9'd240 && drx[9:4]=='0)
+      else if(dry==480)
         status[7] <= 1'b1;
       else if (dry == 10'd524)
         status[7] <= 1'b0;
@@ -175,7 +177,7 @@ module ppu(input        ppu_clk,
             end else if (vram_addr >= 16'h2000 && vram_addr <= 16'h3EFF) begin
               if (vram_addr[11:10] == 2'd0 ||
                   (vram_addr[11:10]==2'd1 && ~mirror_cfg) ||
-                  (vram_addr[11:10]==4'h2 && mirror_cfg)) begin
+                  (vram_addr[11:10]==2'd2 && mirror_cfg)) begin
                 bus_out <= nmta_out;
               end else begin
                 bus_out <= nmtb_out;
@@ -208,7 +210,7 @@ module ppu(input        ppu_clk,
           if (vram_addr >=16'h2000 && vram_addr <= 16'h3EFF) begin
             if (vram_addr[11:10] == 2'd0 ||
                 (vram_addr[11:10]==2'd1 && ~mirror_cfg) ||
-                (vram_addr[11:10]==4'h2 && mirror_cfg))
+                (vram_addr[11:10]==2'd2 && mirror_cfg))
               nmta_en = ~bus_wr;
             else
               nmtb_en = ~bus_wr;
@@ -269,8 +271,8 @@ module ppu(input        ppu_clk,
   logic [4:0]             ndrx;
   logic [7:0]             ndry;
 
-  logic [8:0]             transl_coord;
-  logic                   ovr_x, ovr_y;
+  logic [9:0]             transl_coord;
+  logic                   ovr_x;
 
   //
   // Filling sprite_data
@@ -286,20 +288,18 @@ module ppu(input        ppu_clk,
       ovr_x = 1'b0;
       ndrx = scroll[15:11];
 
-      if (dry >= 479) begin
-        ovr_y = 1'b0;
-        ndry = scroll[7:0];
-      end
+      if (dry >= 479)
+        ndry = '0;
       else
-        {ovr_y, ndry} = (dry + (scroll[7:0]*2) + 10'd1)>>1;
+        ndry = (dry + 10'd1)>>1;
     end else begin
-      {ovr_x, ndrx} = (drx + (scroll[15:8]*2))>>4 + 5'd1;
-      {ovr_y, ndry} = (dry + (scroll[7:0]*2))>>1;
+      {ovr_x, ndrx} = transl_coord[9:4] + 5'd1;
+      ndry = dry[8:1];
     end // else: !if(drx >= 496)
 
     // record in either nametable as offset from 0
     nt_addr = {ndry[7:3], ndrx};
-    actual_nt = {control[1]^ovr_y, control[0]^ovr_x};
+    actual_nt = {control[1], control[0]^ovr_x};
     attr_addr = 10'h3C0 + {ndry[7:5], ndrx[4:2]};
 
     nt_en = 0;
@@ -311,7 +311,7 @@ module ppu(input        ppu_clk,
     render_pattern_addr = '0;
     nt_data = '0;
 
-    transl_coord = '0;
+    transl_coord = drx[8:0] + scroll[15:8]*2;
 
     // defaults for sprite fetch vars
     sprite_fetch_y = '0;
@@ -322,11 +322,6 @@ module ppu(input        ppu_clk,
     // need to change indexing statements slightly as well
 
     if (((drx>>1 < 256 || drx >= 768) && (dry>>1) < 240) || (drx >= 768 && dry==524)) begin
-      if (drx>>1 < 256)
-        transl_coord = drx + scroll[15:8]*2;
-      else
-        transl_coord = drx - 768 + scroll[15:8];
-
       unique case (transl_coord[3:0])
         4'd0, 4'd1: begin
           nt_en = 1'b1;
@@ -334,7 +329,8 @@ module ppu(input        ppu_clk,
 
           // nt_data = sprite_data[ndrx];
 
-          if(actual_nt==2'b0 || actual_nt[1]^mirror_cfg)
+          if(actual_nt==2'd0 || (actual_nt==2'd1 && ~mirror_cfg)
+            || (actual_nt==2'd2 && mirror_cfg))
             nt_data = render_nmta_data;
           else
             nt_data = render_nmtb_data;
@@ -344,7 +340,8 @@ module ppu(input        ppu_clk,
           alt_attr_en = 1'b1;
           render_nmt_addr = attr_addr;
 
-          if(actual_nt==2'b0 || actual_nt[1]^mirror_cfg)
+          if(actual_nt==2'd0 || (actual_nt==2'd1 && ~mirror_cfg)
+             || (actual_nt==2'd2 && mirror_cfg))
             nt_data = render_nmta_data;
           else
             nt_data = render_nmtb_data;
@@ -618,6 +615,7 @@ module ppu(input        ppu_clk,
                        sprite_data[(iter*4)+2][3'd7-diff]};
 
           valid_sprite = |(sprite_pattern);
+          wasit0 = (iter==0) && valid_sprite;
 
           if(valid_sprite) begin
             if (mask[0])
@@ -625,7 +623,6 @@ module ppu(input        ppu_clk,
             else
               palette_color = palette[{1'b1, sprite_data[iter*4][1:0], sprite_pattern}];
             spr_priority = sprite_data[iter*4][5];
-            wasit0 = (iter=='0);
             break;
           end
         end
@@ -633,14 +630,14 @@ module ppu(input        ppu_clk,
     end // if ((mask[4]) && (mask[2] || (drx>>1)>8))
 
     // "hardcode" hit condition
-    hit0 = bg_en && wasit0;
+    hit0 = wasit0 && bg_en && valid_sprite;
 
     if (mask[0]) begin
       bgcolor = vga[{bg_px, 6'd0}];
     end
 
     else begin
-      my_color = palette[{1'b0, attr[{transl_coord[5], transl_coord[5], 1'b0} +: 2], bg_px}];
+      my_color = palette[{1'b0, attr[{dry[5], transl_coord[5], 1'b0} +: 2], bg_px}];
       bgcolor = vga[my_color];
     end
 
@@ -687,10 +684,10 @@ module ppu(input        ppu_clk,
     VGA_G <= vga_g;
 
 
-    if (reset || dry==10'd524)
+    if (reset || dry==524)
       sprite_hit <= 1'b0;
     else
-      sprite_hit <= (sprite_hit) || (hit0 && s0);
+      sprite_hit <= sprite_hit || (s0 && hit0);
   end
 
 endmodule

@@ -129,6 +129,7 @@ void printSignedHex1(signed char value) {
 
 void setKeycode(WORD keycode) { IOWR_ALTERA_AVALON_PIO_DATA(0x1c0, keycode); }
 void setKeycode2(WORD keycode) { IOWR_ALTERA_AVALON_PIO_DATA(0x160, keycode); }
+void setKeycode3(WORD keycode) { IOWR_ALTERA_AVALON_PIO_DATA(0x170, keycode); }
 
 int main() {
   BYTE rcode;
@@ -172,6 +173,7 @@ int main() {
         }
         setKeycode(kbdbuf.keycode[0]);
         setKeycode2(kbdbuf.keycode[1]);
+        setKeycode3(kbdbuf.keycode[2]);
       }
 
       else if (device == 2) {

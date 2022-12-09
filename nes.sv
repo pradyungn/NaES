@@ -50,7 +50,7 @@ module NES (
 
   logic                    SPI0_CS_N, SPI0_SCLK, SPI0_MISO, SPI0_MOSI, USB_GPX, USB_IRQ, USB_RST;
   logic [23:0]             nios_hex;
-  logic [7:0]             nios_keycode, keycode2;
+  logic [7:0]             nios_keycode, keycode2, keycode3;
 
   //=======================================================
   //  Structural coding
@@ -82,7 +82,7 @@ module NES (
                 .spi0_MISO(SPI0_MISO), .spi0_SCLK(SPI0_SCLK), .sw_wire_export(SW),
                 .usb_gpx_export(USB_GPX), .usb_irq_export(USB_IRQ), .usb_rst_export(USB_RST),
                 .vga_clk(CLK_VGA), .sdram_wire_dqm({DRAM_UDQM, DRAM_LDQM}),
-                .keycode2_export(keycode2));
+                .keycode2_export(keycode2), .keycode3_export(keycode3));
 
   // 0 for horiz
   localparam logic         MIRRORING = 1'b1;
@@ -116,8 +116,8 @@ module NES (
   logic [15:0]              DMA_ADDR, INT_ADDR;
 
   KBcontroller control1 (.clk(CLK_NESRAM), .WR(W_R), .ENABLE(c1_en),
-                         .keycode(nios_keycode), .keycode2, .bus(bus_data),
-                         .DATA(c1_o), .COMP(c1_c));
+                         .keycode(nios_keycode), .keycode2, .keycode3,
+                         .bus(bus_data), .DATA(c1_o), .COMP(c1_c));
 
   system_ram SYSRAM (INT_ADDR[10:0], CLK_NESRAM, bus_data, sysram_en, sysram_out);
   prg_rom PRGROM (INT_ADDR[14:0], CLK_NESRAM, prgrom_out);

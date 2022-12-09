@@ -33,7 +33,7 @@ module ppu(input        ppu_clk,
   logic [15:0]                vram_addr, scroll;
   logic [7:0]                 oam_addr, mask, status, control;
 
-  logic                       addr_w, scroll_w; // tracks 1st vs second write to vram addr
+  logic                       addr_latch; // tracks 1st vs second write to vram addr
   logic                       incr, oam_incr; // pipelined incrementation signal for vram/oam
 
   logic [7:0]                 palette [31:0];
@@ -108,8 +108,7 @@ module ppu(input        ppu_clk,
       scroll <= '0;
       vram_addr <= '0;
 
-      addr_w <= 0;
-      scroll_w <= 0;
+      addr_latch <= 0;
 
       bus_out <= 0;
 
@@ -136,12 +135,7 @@ module ppu(input        ppu_clk,
             mask <= bus_din;
           3'd2: if(bus_wr) begin
             bus_out <= status;
-
-            vram_addr <= '0;
-            scroll <= '0;
-
-            addr_w <= 0;
-            scroll_w <= 0;
+            addr_latch <= 0;
           end
           3'd4: begin
             if (bus_wr)
@@ -152,18 +146,18 @@ module ppu(input        ppu_clk,
 
           3'd5: if (~bus_wr)
             begin
-              scroll_w <= ~scroll_w;
+              addr_latch <= ~addr_latch;
 
-              if(~scroll_w)
+              if(~addr_latch)
                 scroll[15:8] <= bus_din;
               else
                 scroll[7:0] <= bus_din;
             end
           3'd6: if (~bus_wr)
             begin
-              addr_w <= ~addr_w;
+              addr_latch <= ~addr_latch;
 
-              if(~addr_w)
+              if(~addr_latch)
                 vram_addr[15:8] <= bus_din;
               else
                 vram_addr[7:0] <= bus_din;
@@ -271,8 +265,8 @@ module ppu(input        ppu_clk,
   logic [4:0]             ndrx;
   logic [7:0]             ndry;
 
-  logic [9:0]             transl_coord;
-  logic                   ovr_x;
+  logic [9:0]             transl_coord, transl_vert;
+  logic                   ovr_x, ovr_y;
 
   //
   // Filling sprite_data
@@ -281,25 +275,36 @@ module ppu(input        ppu_clk,
   logic [4:0]             backshift; // makes it easier to make our "32 cycle" logic
   logic [2:0]             sprite_fetch_y;
 
+  logic [8:0]             interm;
+
   // Memory fetching during rendering
   always_comb begin
+    interm = '0;
+
     // address computation for current tile
     if (drx>>4 >= 31) begin
       ovr_x = 1'b0;
       ndrx = scroll[15:11];
 
-      if (dry >= 479)
-        ndry = '0;
-      else
-        ndry = (dry + 10'd1)>>1;
+      if (dry >= 479) begin
+        ovr_y = 1'b0;
+        ndry = active_scrolly;
+      end
+      else begin
+        interm = (dry + 10'd1)>>1 + active_scrolly;
+        ovr_y = (interm > 239);
+        ndry = interm - (ovr_y ? 240 : 0);
+      end
     end else begin
       {ovr_x, ndrx} = transl_coord[9:4] + 5'd1;
-      ndry = dry[8:1];
+      interm = dry[8:1] + active_scrolly;
+      ovr_y = (interm > 239);
+      ndry = interm - (ovr_y ? 240 : 0);
     end // else: !if(drx >= 496)
 
     // record in either nametable as offset from 0
     nt_addr = {ndry[7:3], ndrx};
-    actual_nt = {control[1], control[0]^ovr_x};
+    actual_nt = {control[1]^ovr_y, control[0]^ovr_x};
     attr_addr = 10'h3C0 + {ndry[7:5], ndrx[4:2]};
 
     nt_en = 0;
@@ -312,6 +317,10 @@ module ppu(input        ppu_clk,
     nt_data = '0;
 
     transl_coord = drx[8:0] + scroll[15:8]*2;
+
+    transl_vert = dry[8:1] + active_scrolly;
+    if (transl_vert > 239)
+      transl_vert = dry[8:1] + active_scrolly - 240;
 
     // defaults for sprite fetch vars
     sprite_fetch_y = '0;
@@ -579,6 +588,8 @@ module ppu(input        ppu_clk,
   // "hit condition" of sprite hit flag
   logic       hit0, sprite_hit, wasit0;
 
+  logic [7:0] active_scrolly; // update once per frame
+
   // unsynchronized outputs
   logic [3:0] vga_r, vga_g, vga_b;
 
@@ -637,7 +648,7 @@ module ppu(input        ppu_clk,
     end
 
     else begin
-      my_color = palette[{1'b0, attr[{dry[5], transl_coord[5], 1'b0} +: 2], bg_px}];
+      my_color = palette[{1'b0, attr[{transl_vert[4], transl_coord[5], 1'b0} +: 2], bg_px}];
       bgcolor = vga[my_color];
     end
 
@@ -684,8 +695,11 @@ module ppu(input        ppu_clk,
     VGA_G <= vga_g;
 
 
-    if (reset || dry==524)
+    if (reset || dry==524) begin
       sprite_hit <= 1'b0;
+      active_scrolly <= scroll[7:0];
+    end
+
     else
       sprite_hit <= sprite_hit || (s0 && hit0);
   end

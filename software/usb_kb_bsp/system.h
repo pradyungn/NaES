@@ -4,7 +4,7 @@
  * Machine generated for CPU 'nios2_gen2_0' in SOPC Builder design 'nios'
  * SOPC Builder design path: ../../nios.sopcinfo
  *
- * Generated: Tue Dec 06 20:39:08 CST 2022
+ * Generated: Thu Dec 08 20:46:11 CST 2022
  */
 
 /*
@@ -160,19 +160,19 @@
 #define ALT_NUM_INTERNAL_INTERRUPT_CONTROLLERS 1
 #define ALT_NUM_INTERRUPT_CONTROLLERS 1
 #define ALT_STDERR "/dev/jtag_uart_0"
-#define ALT_STDERR_BASE 0x228
+#define ALT_STDERR_BASE 0x238
 #define ALT_STDERR_DEV jtag_uart_0
 #define ALT_STDERR_IS_JTAG_UART
 #define ALT_STDERR_PRESENT
 #define ALT_STDERR_TYPE "altera_avalon_jtag_uart"
 #define ALT_STDIN "/dev/jtag_uart_0"
-#define ALT_STDIN_BASE 0x228
+#define ALT_STDIN_BASE 0x238
 #define ALT_STDIN_DEV jtag_uart_0
 #define ALT_STDIN_IS_JTAG_UART
 #define ALT_STDIN_PRESENT
 #define ALT_STDIN_TYPE "altera_avalon_jtag_uart"
 #define ALT_STDOUT "/dev/jtag_uart_0"
-#define ALT_STDOUT_BASE 0x228
+#define ALT_STDOUT_BASE 0x238
 #define ALT_STDOUT_DEV jtag_uart_0
 #define ALT_STDOUT_IS_JTAG_UART
 #define ALT_STDOUT_PRESENT
@@ -186,7 +186,7 @@
  */
 
 #define ALT_MODULE_CLASS_ext_pll altpll
-#define EXT_PLL_BASE 0x1e0
+#define EXT_PLL_BASE 0x200
 #define EXT_PLL_IRQ -1
 #define EXT_PLL_IRQ_INTERRUPT_CONTROLLER_ID -1
 #define EXT_PLL_NAME "/dev/ext_pll"
@@ -211,7 +211,7 @@
  */
 
 #define ALT_MODULE_CLASS_hex_digits_pio altera_avalon_pio
-#define HEX_DIGITS_PIO_BASE 0x170
+#define HEX_DIGITS_PIO_BASE 0x180
 #define HEX_DIGITS_PIO_BIT_CLEARING_EDGE_REGISTER 0
 #define HEX_DIGITS_PIO_BIT_MODIFYING_OUTPUT_REGISTER 0
 #define HEX_DIGITS_PIO_CAPTURE 0
@@ -238,7 +238,7 @@
  */
 
 #define ALT_MODULE_CLASS_jtag_uart_0 altera_avalon_jtag_uart
-#define JTAG_UART_0_BASE 0x228
+#define JTAG_UART_0_BASE 0x238
 #define JTAG_UART_0_IRQ 1
 #define JTAG_UART_0_IRQ_INTERRUPT_CONTROLLER_ID 0
 #define JTAG_UART_0_NAME "/dev/jtag_uart_0"
@@ -256,7 +256,7 @@
  */
 
 #define ALT_MODULE_CLASS_key altera_avalon_pio
-#define KEY_BASE 0x1b0
+#define KEY_BASE 0x1d0
 #define KEY_BIT_CLEARING_EDGE_REGISTER 0
 #define KEY_BIT_MODIFYING_OUTPUT_REGISTER 0
 #define KEY_CAPTURE 0
@@ -329,6 +329,33 @@
 #define KEYCODE2_RESET_VALUE 0
 #define KEYCODE2_SPAN 16
 #define KEYCODE2_TYPE "altera_avalon_pio"
+
+
+/*
+ * keycode3 configuration
+ *
+ */
+
+#define ALT_MODULE_CLASS_keycode3 altera_avalon_pio
+#define KEYCODE3_BASE 0x170
+#define KEYCODE3_BIT_CLEARING_EDGE_REGISTER 0
+#define KEYCODE3_BIT_MODIFYING_OUTPUT_REGISTER 0
+#define KEYCODE3_CAPTURE 0
+#define KEYCODE3_DATA_WIDTH 8
+#define KEYCODE3_DO_TEST_BENCH_WIRING 0
+#define KEYCODE3_DRIVEN_SIM_VALUE 0
+#define KEYCODE3_EDGE_TYPE "NONE"
+#define KEYCODE3_FREQ 50000000
+#define KEYCODE3_HAS_IN 0
+#define KEYCODE3_HAS_OUT 1
+#define KEYCODE3_HAS_TRI 0
+#define KEYCODE3_IRQ -1
+#define KEYCODE3_IRQ_INTERRUPT_CONTROLLER_ID -1
+#define KEYCODE3_IRQ_TYPE "NONE"
+#define KEYCODE3_NAME "/dev/keycode3"
+#define KEYCODE3_RESET_VALUE 0
+#define KEYCODE3_SPAN 16
+#define KEYCODE3_TYPE "altera_avalon_pio"
 
 
 /*
@@ -432,7 +459,7 @@
  */
 
 #define ALT_MODULE_CLASS_sdram_pll altpll
-#define SDRAM_PLL_BASE 0x200
+#define SDRAM_PLL_BASE 0x210
 #define SDRAM_PLL_IRQ -1
 #define SDRAM_PLL_IRQ_INTERRUPT_CONTROLLER_ID -1
 #define SDRAM_PLL_NAME "/dev/sdram_pll"
@@ -477,7 +504,7 @@
  */
 
 #define ALT_MODULE_CLASS_sw altera_avalon_pio
-#define SW_BASE 0x1d0
+#define SW_BASE 0x1e0
 #define SW_BIT_CLEARING_EDGE_REGISTER 0
 #define SW_BIT_MODIFYING_OUTPUT_REGISTER 0
 #define SW_CAPTURE 0
@@ -504,13 +531,13 @@
  */
 
 #define ALT_MODULE_CLASS_sysid_qsys_0 altera_avalon_sysid_qsys
-#define SYSID_QSYS_0_BASE 0x220
+#define SYSID_QSYS_0_BASE 0x230
 #define SYSID_QSYS_0_ID 0
 #define SYSID_QSYS_0_IRQ -1
 #define SYSID_QSYS_0_IRQ_INTERRUPT_CONTROLLER_ID -1
 #define SYSID_QSYS_0_NAME "/dev/sysid_qsys_0"
 #define SYSID_QSYS_0_SPAN 8
-#define SYSID_QSYS_0_TIMESTAMP 1670380287
+#define SYSID_QSYS_0_TIMESTAMP 1670553769
 #define SYSID_QSYS_0_TYPE "altera_avalon_sysid_qsys"
 
 
@@ -546,7 +573,7 @@
  */
 
 #define ALT_MODULE_CLASS_usb_gpx altera_avalon_pio
-#define USB_GPX_BASE 0x1a0
+#define USB_GPX_BASE 0x1b0
 #define USB_GPX_BIT_CLEARING_EDGE_REGISTER 0
 #define USB_GPX_BIT_MODIFYING_OUTPUT_REGISTER 0
 #define USB_GPX_CAPTURE 0
@@ -573,7 +600,7 @@
  */
 
 #define ALT_MODULE_CLASS_usb_irq altera_avalon_pio
-#define USB_IRQ_BASE 0x190
+#define USB_IRQ_BASE 0x1a0
 #define USB_IRQ_BIT_CLEARING_EDGE_REGISTER 0
 #define USB_IRQ_BIT_MODIFYING_OUTPUT_REGISTER 0
 #define USB_IRQ_CAPTURE 0
@@ -600,7 +627,7 @@
  */
 
 #define ALT_MODULE_CLASS_usb_rst altera_avalon_pio
-#define USB_RST_BASE 0x180
+#define USB_RST_BASE 0x190
 #define USB_RST_BIT_CLEARING_EDGE_REGISTER 0
 #define USB_RST_BIT_MODIFYING_OUTPUT_REGISTER 0
 #define USB_RST_CAPTURE 0

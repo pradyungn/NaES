@@ -4,6 +4,7 @@
 		.hex_wire_export  (<connected-to-hex_wire_export>),  //   hex_wire.export
 		.key_wire_export  (<connected-to-key_wire_export>),  //   key_wire.export
 		.keycode_export   (<connected-to-keycode_export>),   //    keycode.export
+		.keycode2_export  (<connected-to-keycode2_export>),  //   keycode2.export
 		.led_wire_export  (<connected-to-led_wire_export>),  //   led_wire.export
 		.nes_clk          (<connected-to-nes_clk>),          //        nes.clk
 		.ppu_clk          (<connected-to-ppu_clk>),          //        ppu.clk
@@ -27,6 +28,6 @@
 		.usb_irq_export   (<connected-to-usb_irq_export>),   //    usb_irq.export
 		.usb_rst_export   (<connected-to-usb_rst_export>),   //    usb_rst.export
 		.vga_clk          (<connected-to-vga_clk>),          //        vga.clk
-		.keycode2_export  (<connected-to-keycode2_export>)   //   keycode2.export
+		.keycode3_export  (<connected-to-keycode3_export>)   //   keycode3.export
 	);
 

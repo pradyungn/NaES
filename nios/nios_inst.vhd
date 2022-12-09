@@ -5,6 +5,7 @@
 			hex_wire_export  : out   std_logic_vector(23 downto 0);                    -- export
 			key_wire_export  : in    std_logic_vector(1 downto 0)  := (others => 'X'); -- export
 			keycode_export   : out   std_logic_vector(7 downto 0);                     -- export
+			keycode2_export  : out   std_logic_vector(7 downto 0);                     -- export
 			led_wire_export  : out   std_logic_vector(9 downto 0);                     -- export
 			nes_clk          : out   std_logic;                                        -- clk
 			ppu_clk          : out   std_logic;                                        -- clk
@@ -28,7 +29,7 @@
 			usb_irq_export   : in    std_logic                     := 'X';             -- export
 			usb_rst_export   : out   std_logic;                                        -- export
 			vga_clk          : out   std_logic;                                        -- clk
-			keycode2_export  : out   std_logic_vector(7 downto 0)                      -- export
+			keycode3_export  : out   std_logic_vector(7 downto 0)                      -- export
 		);
 	end component nios;
 
@@ -39,6 +40,7 @@
 			hex_wire_export  => CONNECTED_TO_hex_wire_export,  --   hex_wire.export
 			key_wire_export  => CONNECTED_TO_key_wire_export,  --   key_wire.export
 			keycode_export   => CONNECTED_TO_keycode_export,   --    keycode.export
+			keycode2_export  => CONNECTED_TO_keycode2_export,  --   keycode2.export
 			led_wire_export  => CONNECTED_TO_led_wire_export,  --   led_wire.export
 			nes_clk          => CONNECTED_TO_nes_clk,          --        nes.clk
 			ppu_clk          => CONNECTED_TO_ppu_clk,          --        ppu.clk
@@ -62,6 +64,6 @@
 			usb_irq_export   => CONNECTED_TO_usb_irq_export,   --    usb_irq.export
 			usb_rst_export   => CONNECTED_TO_usb_rst_export,   --    usb_rst.export
 			vga_clk          => CONNECTED_TO_vga_clk,          --        vga.clk
-			keycode2_export  => CONNECTED_TO_keycode2_export   --   keycode2.export
+			keycode3_export  => CONNECTED_TO_keycode3_export   --   keycode3.export
 		);
 
